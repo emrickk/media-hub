@@ -32,11 +32,13 @@ from pathlib import Path
 import requests
 
 HERE = Path(__file__).resolve().parent
-CFG = json.loads((HERE / "sync-config.json").read_text())
+sys.path.insert(0, str(HERE))
+from secrets import secret  # noqa: E402  (credentials, never from the json)
+
 DB = HERE / "media.db"
 
-RYOT = CFG["ryot_url"].rstrip("/")
-HEADERS = {"Authorization": f"Bearer {CFG['ryot_api_key']}"}
+RYOT = secret("ryot_url").rstrip("/")
+HEADERS = {"Authorization": f"Bearer {secret('ryot_api_key')}"}
 
 # Everything ever pushed to Ryot is recorded here, so re-running exports only
 # the delta. (Ryot re-imports duplicate history, so this table is the guard.)

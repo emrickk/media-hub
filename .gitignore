@@ -15,6 +15,9 @@ sync-config.json
 **/sources.env
 *_token.json
 .mcp.json
+# ...but the empty templates are the whole point — they document the shape.
+!*.example.env
+!sync-config.example.json
 
 # --- the canonical store and its backups ---------------------------------
 media.db

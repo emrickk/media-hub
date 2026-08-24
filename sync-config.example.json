@@ -1,0 +1,6 @@
+{
+  "letterboxd_user": "your-letterboxd-username",
+  "ryot_username": "your-ryot-username",
+  "yamtrack_username": "your-yamtrack-username",
+  "_note": "Non-secret settings only. Copy to sync-config.json. Credentials go in sync-config.env (see sync-config.example.env) and are read through secrets.py — never put a token or password in this file."
+}
