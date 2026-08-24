@@ -3,7 +3,8 @@
 Implements spec Part A §A3 (critic) and A2.3/A2.4. You are a fresh
 context. You must receive ONLY:
 
-1. **the profile document**;
+1. **the profile evidence** — the user-expressed ledger and engine inference
+   ledger, or a legacy single profile document;
 2. **the history** — the index, plus the snapshot path (see "Reading the
    history" below);
 3. **the rating distribution** — the output of
@@ -12,7 +13,8 @@ context. You must receive ONLY:
 4. **the candidate cells** — one `history.py cell` object per candidate,
    the population that candidate belongs to;
 5. **the dossiers** (dossiers.json);
-6. **the pitch target**, stated explicitly as its own line in the prompt
+6. **the pitch target**, stated explicitly as its own line in the prompt,
+   or `Pitch target: unavailable — true cold start` when `overall.n: 0`
    (see "Core judgment" below);
 7. **this file**.
 
@@ -106,6 +108,15 @@ user's own ratings.
 You are given two distribution inputs, and you must read both before
 predicting anything.
 
+**True cold start:** when the supplied overall distribution has `n: 0`, the
+input is present but no personal rating base rate exists. Do not invent one and
+do not fail the contract. Set `predicted_stars`, `predicted_percentile`, and
+`p_top` to `null`; cap `predicted_confidence` at `medium`; and judge with the
+profile evidence, candidate evidence, ask fit, reason quality, and
+`predicted_appetite`. The normal percentile gate activates automatically after
+the user accumulates rated history. During cold start, select at most 10
+high/medium-appetite survivors and label the run provisional.
+
 - **The overall distribution** (`history.py distribution`) tells you the
   shape of the whole scale: `n`, `mean`, `median`, `pct_ge4`, `pct_5`,
   the `histogram`, and `percentiles`. Read it as the answer to "what
@@ -194,6 +205,9 @@ state plainly in your output that no target was supplied and that you
 had to infer one, name the value you inferred and how you got it, and
 record it as a top-level caveat so the orchestrator can see the gate ran
 on an inferred target rather than the given one.
+The one exception is the explicit true-cold-start marker paired with
+`overall.n: 0`: do not infer a target. Apply the cold-start rule above and
+record that marker in `pitch_target_used`.
 
 ### Use the whole scale
 The user's scale has a middle, and the profile defines what the middle
@@ -280,7 +294,7 @@ How to argue a prediction:
      Kill on identity only for a contradiction or a fabrication —
      never for an absence that the dossier states honestly.
 2. **Dedup**: candidate matches (by external id, else title+year) a
-   watched/watching item, or a rec_log row with verdict `no` = KILL
+   watched/watching item, or a rec_log row with verdict `no` or `watched` = KILL
    (`outcome: "kill"`, `kill_rule: "dedup"`). Matches a wishlist item →
    demote to "already on your list" note (`outcome: "wishlist-note"`,
    `kill_rule: null` — this is not a kill), not a pitch slot.
@@ -290,7 +304,7 @@ How to argue a prediction:
 3. **Predicted rating and placement**: as above — produce
    `predicted_stars`, `predicted_percentile`, `p_top`, and
    `predicted_confidence`, each argued against the candidate's cell.
-   **`predicted_percentile` below the pitch target you were given =
+   **Outside true cold start, `predicted_percentile` below the pitch target you were given =
    KILL** (`outcome: "kill"`, `kill_rule: "predicted"`), citing the
    base-rate argument and the analogy chain. The gate is positional, so
    a respectable star value that still sits below the target in its own
@@ -337,6 +351,14 @@ How to argue a prediction:
    3 work as a pair: item 3 sets the central estimate from what the
    evidence indicates, this item sets the band around it from how good
    that evidence is. Neither one takes the other's job.
+   Audit `evidence_density` too: `blank` caps confidence at `low`;
+   `adjacent` must name the gap in `residual_risks`; `anchored` analogues must
+   be version-checked. An analogy resting on the wrong adaptation, remake,
+   medium, regional version, or season is a `fact` kill.
+   Judge enrichment here as well. Send back generic marketing language, an
+   ungrounded entry point, episode specificity or quotes on a thin-knowledge
+   work, a named critic claim without evidence, or a personal hook argued only
+   from genre/category labels.
    A strong candidate with a lazy (not honestly thin) dossier is
    SEND-BACK (`outcome: "sendback"`, `kill_rule: null`), not a kill.
 6. **Survivor annotation**: residual risks (including any low-confidence
@@ -349,6 +371,14 @@ How to argue a prediction:
 7. **Rank and select** across the whole slate, once every candidate has
    been judged — see the next section.
 
+For every candidate, separately predict starting appetite:
+`predicted_appetite: low|medium|high` and `appetite_case`. This means “would
+the user start or bookmark it now?”, not “would they rate it highly after
+watching.” Use the work's visual/start hook, length, entry point, current ask,
+and delivery evidence. A low-appetite/high-rating work may survive the quality
+gate, but it must not take a selected pitch slot unless its concrete entry plan
+credibly raises appetite to at least medium.
+
 ## Ranking and selection — yours, in writing
 Selection used to happen after you: everything you passed went to a
 human who hand-picked which survivors to show. That was the one step in
@@ -360,10 +390,14 @@ and you log it.
 After the per-candidate checklist is complete for every dossier:
 
 - **Order every survivor** — rank 1 = strongest — and write the rank
-  into `pitch_rank`. Rank on `predicted_percentile` first (it is the
-  cross-population common footing), then `p_top`, then
-  `predicted_confidence`, then how squarely the candidate answers the
-  ask. Where two are close, say which tiebreaker you used.
+  into `pitch_rank`. Exclude low-appetite survivors from selected slots unless
+  their entry plan raises the argued appetite. Normally rank on
+  `predicted_percentile` first (it is the cross-population common footing),
+  then `p_top`, then `predicted_confidence`, then how squarely the candidate
+  answers the ask. Where two are close, say which tiebreaker you used.
+  In true cold start, those numeric fields are null: rank by
+  `predicted_appetite`, profile-evidence strength, reason quality, candidate
+  evidence, and ask fit instead.
 - Non-survivors (`kill`, `sendback`, `wishlist-note`) get
   `pitch_rank: null` and `pitch_selected: false`. Ranking is over
   survivors only.
@@ -406,6 +440,12 @@ a whole, not on any one candidate. Compute it over the
 `predicted_stars` and `predicted_percentile` values you actually
 emitted, across every candidate you judged:
 
+For true cold start, emit the object with `distinct_star_values: 0`, all four
+range endpoints `null`, `used_middle_or_below: false`,
+`non_discrimination_warning: false`, and a note that personal rating spread
+is unavailable until rated history exists. Do not run numeric range math on
+nulls.
+
 - `distinct_star_values` — how many different `predicted_stars` values
   appear in this run.
 - `stars_min`, `stars_max` — the range of `predicted_stars`.
@@ -445,7 +485,8 @@ silently. Emit one object per dossier you were given, in any order, with
 `dossier_index` correct; `title`/`year` stay for human legibility only.
 
 `predicted_stars` stays in the user's star units (the orchestrator logs
-it as a column); `predicted_percentile` is 0–100 within the candidate's
+it as a column); both it and `predicted_percentile` may be `null` only for the
+documented `n: 0` cold start. Otherwise `predicted_percentile` is 0–100 within the candidate's
 cell; `p_top` is 0.00–1.00. `cell_label` and `cell_base_rate` record
 which population you judged against and the numbers you read off it, so
 a later reader can check the placement without re-deriving the cell.
@@ -471,6 +512,8 @@ a later reader can check the placement without re-deriving the cell.
     "kill_evidence": "one paragraph, specific",
     "predicted_stars": 4.5, "predicted_confidence": "high|medium|low",
     "predicted_percentile": 88,
+    "predicted_appetite": "high",
+    "appetite_case": "why the user may start or bookmark this now",
     "p_top": 0.34,
     "cell_label": "the cell you judged against, as the cell reported it",
     "cell_base_rate": "n, mean/median, pct_ge4, pct_5, the percentile row you used, fallback_used",

@@ -89,6 +89,25 @@ def test_suppress_sync_watched_and_no_verdict(tmp_path):
     assert json.loads(run(db,"query").stdout) == []
     assert len(json.loads(run(db,"query","--include-suppressed").stdout)) == 2
 
+
+def test_suppress_sync_seen_feedback_but_not_weak_pitch(tmp_path):
+    db = mkdb(tmp_path)
+    seen = dict(ROW, title="Seen Before", external_ids={"tmdb_tv": "901"})
+    weak = dict(ROW, title="Explain Better", external_ids={"tmdb_tv": "902"})
+    _upsert(db, [seen, weak], tmp_path)
+    con = sqlite3.connect(db)
+    con.execute("INSERT INTO recommendations (title,year,kind,external_ids,verdict) "
+                "VALUES ('Seen Before',2021,'tv','{\"tmdb_tv\":\"901\"}','watched')")
+    con.execute("INSERT INTO recommendations (title,year,kind,external_ids,verdict) "
+                "VALUES ('Explain Better',2021,'tv','{\"tmdb_tv\":\"902\"}','meh')")
+    con.commit(); con.close()
+
+    out = json.loads(run(db, "suppress-sync").stdout)
+
+    assert out["watched"] == 1
+    remaining = {row["title"] for row in json.loads(run(db, "query").stdout)}
+    assert remaining == {"Explain Better"}
+
 def test_suppress_sync_watched_via_sibling_season(tmp_path):
     """Season/parent asymmetry fix: a pool candidate representing a
     whole show (a platform's own unit — never a season) must be

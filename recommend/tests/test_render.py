@@ -90,14 +90,21 @@ create table recommendations (
 """
 
 
-def make_row(con, rid, title, rank=None, selected=None, killed=0):
+def make_row(con, rid, title, rank=None, selected=None, killed=0,
+             enrichment=None, appetite=None, evidence_density=None):
     dossier = {
         "scout": {"case": f"case for {title}", "original_title": title,
-                  "shape": {"runtime_min": 100}},
+                  "shape": {"runtime_min": 100},
+                  **({"enrichment": enrichment} if enrichment else {}),
+                  **({"evidence_density": evidence_density}
+                     if evidence_density else {})},
         "critic": {"pitch_rank": rank, "pitch_selected": selected,
                    "predicted_percentile": 88.0, "cell_label": "cell",
                    "selection_reason": "because", "residual_risks": ["r"],
-                   "evidence_chain": ["e"]},
+                   "evidence_chain": ["e"],
+                   **({"predicted_appetite": appetite,
+                       "appetite_case": "The concrete hook lowers the start cost."}
+                      if appetite else {})},
     }
     con.execute(
         "insert into recommendations (id, session_date, intention, kind, title,"
@@ -125,6 +132,72 @@ def test_card_of_lifts_nested_critic_fields_to_the_top(con):
     assert card["percentile"] == 88.0
     assert card["case"] == "case for A"
     assert card["stars"] == 4.5
+
+
+def test_card_of_lifts_enrichment_appetite_and_evidence_density(con):
+    enrichment = {
+        "knowledge": "rich", "basis": "model-knowledge",
+        "summary": "A taxi driver hears conversations that converge into one mystery.",
+        "special": "Thirteen short episodes form one complete story.",
+        "personal_hook": "Its visual identity and structural payoff are both load-bearing.",
+        "good_to_know": "Finish the season before judging its apparently separate threads.",
+        "entry": {"applicable": True, "start_at": "S1E1",
+                  "why": "The central mystery starts immediately.",
+                  "exit_test": "Try two episodes."},
+        "inside": {"moments": ["Every passenger leaves a clue."],
+                   "quotes": [{"text": "Keep it short.", "speaker": "Odokawa"}]},
+        "reception": "Widely praised as a tightly constructed mystery.",
+        "ratings": [{"source": "IMDb", "value": "8.4/10"}],
+    }
+    make_row(con, 1, "Odd Taxi", enrichment=enrichment,
+             appetite="high", evidence_density="anchored")
+
+    card = render.card_of(con.execute("select * from recommendations").fetchone())
+
+    assert card["enrichment"] == enrichment
+    assert card["appetite"] == "high"
+    assert card["appetite_case"].startswith("The concrete hook")
+    assert card["evidence_density"] == "anchored"
+
+
+def test_render_card_shows_concrete_enrichment_and_attributed_quote(con):
+    enrichment = {
+        "knowledge": "thin", "basis": "fetched-evidence",
+        "summary": "A compact mystery.", "special": "One story, no filler.",
+        "personal_hook": "It connects to the user's stated love of visible structure.",
+        "good_to_know": "Specific episode claims were intentionally omitted.",
+        "entry": {"applicable": True, "start_at": "S1E1",
+                  "why": "The premise is established there.", "exit_test": "Try one episode."},
+        "inside": {"moments": ["Conversations accumulate into evidence."],
+                   "quotes": [{"text": "A short line.", "speaker": "The show"}]},
+        "reception": "Strong audience reception.",
+        "ratings": [{"source": "IMDb", "value": "8.0/10"}],
+    }
+    make_row(con, 1, "Mystery", enrichment=enrichment, appetite="high",
+             evidence_density="adjacent")
+    card = render.card_of(con.execute("select * from recommendations").fetchone())
+    card.update({"overview": "", "id_warning": "", "poster_data": ""})
+
+    html = render.render_card(card)
+
+    for text in ("What it is", "What makes it special", "Why I picked it for you",
+                 "Good to know", "Where to start", "Inside it",
+                 "A compact mystery.", "S1E1", "Conversations accumulate",
+                 "A short line.", "The show", "IMDb", "8.0/10",
+                 "Knowledge is thin"):
+        assert text in html
+
+
+def test_render_card_without_enrichment_does_not_invent_sections(con):
+    make_row(con, 1, "Legacy")
+    card = render.card_of(con.execute("select * from recommendations").fetchone())
+    card.update({"overview": "", "id_warning": "", "poster_data": ""})
+
+    html = render.render_card(card)
+
+    assert "What makes it special" not in html
+    assert "Where to start" not in html
+    assert "Inside it" not in html
 
 
 def test_card_of_survives_a_missing_dossier(con):
@@ -164,6 +237,21 @@ def test_render_page_puts_unselected_survivors_below_the_picks(con):
     alsoran = [c for c in cards if c["selected"] is False]
     page = render.render_page(picks, alsoran, [], "ask", "2026-08-23 19:00")
     assert page.index("Picked") < page.index("也通过了") < page.index("Capped")
+
+
+def test_page_feedback_packet_uses_differentiated_reactions(con):
+    make_row(con, 1, "A", rank=1, selected=True)
+    card = render.card_of(con.execute("select * from recommendations").fetchone())
+    card.update({"overview": "", "id_warning": ""})
+
+    page = render.render_page([card], [], [], "ask", "2026-08-23 19:00")
+
+    for reaction in ("start", "bookmark", "wrong_title", "weak_pitch", "seen"):
+        assert f'data-reaction="{reaction}"' in page
+    assert "Copy feedback for Codex / Claude" in page
+    assert "media-hub-feedback-v1" in page
+    assert "recommend/reclog.py --db media.db feedback --json" in page
+    assert "v.reaction || 'note'" in page
 
 
 def test_stars_html_renders_a_half_star():

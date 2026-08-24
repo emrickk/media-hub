@@ -46,6 +46,10 @@ exports/
 dumps/
 
 # --- personal data dumps --------------------------------------------------
+# Normalized chat messages and the generated user/engine ledgers.
+profile/
+# Personal calibration pages generated from local chat-history experiments.
+analysis/chat-history-abcd-*.html
 # analysis/ keeps its markdown and its decision records; the bulk dumps of
 # review text and mined ratings are media.db data by another name.
 analysis/reviews_dump_*.txt

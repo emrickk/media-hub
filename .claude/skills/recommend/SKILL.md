@@ -72,6 +72,16 @@ All commands assume cwd = the `media-hub` repo root.
    dossier — a prior is a standing correction, not a trump card.
    If `active` prints "none recorded yet", proceed without it; that is a
    valid state, not a missing input.
+   On a true first run, if `media.db` does not exist, run
+   `python3 recommend/bootstrap.py --db media.db`. If neither
+   `profile/USER.md` nor a legacy `TASTE.md` exists, perform
+   `recommend/PROFILER.md` from the user's permitted local chat history before
+   scouting. The normal profile input is both `profile/USER.md` and
+   `profile/INFERENCES.md`; keep the legacy `TASTE.md` fallback for the first
+   instance.
+   If the distribution reports `overall.n: 0`, this is a true cold start:
+   keep that object as a required input, but do not manufacture a percentile
+   target or pretend the empty cell is calibrated.
 2. **Scout**: run SCOUT.md §§1–6 in this session (interpret + clarify
    check → history → sweep → narrow → dossiers → handoff), following
    whichever of SCOUT.md's "Run modes" paths matches this run:
@@ -93,6 +103,9 @@ All commands assume cwd = the `media-hub` repo root.
      end of the run). Stay inside the ~10-network-call budget; a
      targeted top-up (tier 2) for a logged pool gap is the only
      sanctioned overflow.
+     On a true cold start (`overall.n: 0`), use SCOUT.md's cold-start
+     shortlist instead of the percentile bar. The critic remains the
+     rejection gate.
    - **Digest**: the full funnel — §3's sweep across all tiers, §4's
      Cut 1/Cut 2, deep dossiers — exactly as v1, now starting from the
      pool step 0 just refreshed.
@@ -100,8 +113,11 @@ All commands assume cwd = the `media-hub` repo root.
    decision and any `pool gap:` lines. Write dossiers.json as a JSON
    **list** — its ordering is the join key for step 5, so do not reorder
    it after the critic is dispatched.
+   Every finalist dossier must include SCOUT.md's `evidence_density` and honest
+   `enrichment` block. This is finalist-only LLM judgment, not a new search
+   pass.
 3. **Critic**: spawn a subagent (general-purpose) whose prompt contains
-   ONLY: the text of CRITIC.md, the profile document, the **contents of
+   ONLY: the text of CRITIC.md, both profile ledgers (or the legacy profile), the **contents of
    index.txt**, the **path** to snap.json (plus the `history.py lookup`
    usage CRITIC.md describes), the **distribution JSON** from step 1,
    **one cell object per candidate**, dossiers.json, the **engine priors
@@ -120,6 +136,9 @@ All commands assume cwd = the `media-hub` repo root.
    it into the prompt verbatim; do not paraphrase it, do not let the
    critic infer it from the profile's rating semantics, and do not omit
    the line as redundant with the profile document.
+   On true cold start, use the explicit line
+   `Pitch target: unavailable — true cold start` plus the pitch cap instead
+   of copying the normal percentile target.
    **Generate the per-candidate cells before spawning.** For each
    dossier, run
    `python3 recommend/history.py cell --snapshot <scratchpad>/snap.json --kind <dossier.kind> --year <dossier.year>`
@@ -133,6 +152,9 @@ All commands assume cwd = the `media-hub` repo root.
    hide or to re-cut. The distribution and the cells are **required**
    inputs — the gate is positional and the critic returns
    `contract_ok: false` without them.
+   For `overall.n: 0`, pass the empty distribution and returned fallback
+   cells unchanged and explicitly invoke CRITIC.md's true-cold-start rule;
+   numeric percentile prediction is intentionally unavailable.
    **Never inline snap.json and never tell the critic to Read it.** It
    is ~900KB / ~40,000 lines; a Read caps at 2,000 lines and returns an
    arbitrary recency slice with no indication that anything is missing,
@@ -215,7 +237,13 @@ All commands assume cwd = the `media-hub` repo root.
    every candidate scored effectively the same means the gate did not
    discriminate, and the user must be told that rather than left to
    spot it by comparing numbers by hand.
+   For a true cold start, say instead that the slate is provisional and has
+   no personal rating base rate yet; do not turn null percentile fields into
+   a fake numeric spread.
    Category names and aggregate scores are never reasons.
+   Include each selected dossier's concrete entry point when applicable. The
+   HTML is the full pitch: it must show the enrichment fields, not only the
+   legacy case paragraph.
 5. **Log** (media.db write — run the README write ritual first, from the
    media-hub root). Build one JSON list, one object per candidate that
    reached the critic (survivors, kills, unrebuilt sendbacks, and
@@ -303,6 +331,14 @@ All commands assume cwd = the `media-hub` repo root.
    one of `interested` / `no` / `meh` / `watched`.
    `interested` → offer (never auto-run) the wishlist add per README.
 
+   When the HTML supplies a `media-hub-feedback-v1` packet, prefer the richer
+   transactional path:
+   `python3 recommend/reclog.py --db media.db feedback --json <packet.json>`.
+   It preserves `start`, `bookmark`, `wrong_title`, `weak_pitch`, and `seen`
+   while mapping them into the existing verdict loop. Then run
+   `pool.py suppress-sync`: wrong titles and already-seen works stay out;
+   weak-pitch works remain eligible for a better explanation.
+
 6b. **Capture the prose feedback, not just the clicks.** When the user
    says anything about *why* a pitch did or didn't land — "these look
    low-rated", "I don't start old films", "that reads as horror" — that
@@ -343,6 +379,8 @@ All commands assume cwd = the `media-hub` repo root.
    gate failed to discriminate and the survivor list should not be
    trusted as a ranking. Report it even when it is unflattering to the
    run; that is exactly the case it exists for.
+   For a true cold start, report the critic's provisional/null spread as
+   such rather than requiring numeric minima and maxima.
    Then show the running calibration numbers:
    `python3 recommend/reclog.py --db media.db stats` — `pitched`, `hits`,
    `hit_rate` ((interested + watched) / pitched, spec A8), and

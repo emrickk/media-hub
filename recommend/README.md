@@ -1,15 +1,14 @@
-# recommend/ — instance bindings (user #1)
+# recommend/ — runtime bindings
 
-The engine is SCOUT.md + CRITIC.md (user-agnostic; spec Part A). This
-file binds the engine to its first instance. A second user would get a
-different README and profile — nothing else changes.
+The engine is PROFILER.md + SCOUT.md + CRITIC.md. A new user stores personal
+state locally under `profile/` and `media.db`; the legacy first instance still
+uses `TASTE.md` when those profile files are absent.
 
 All commands and paths in this document assume the working directory is
 the `media-hub` repo root.
 
-- **Profile document:** `TASTE.md` (calibrated 2026-07-28; the spec's
-  Part B schema in prose form). Rating semantics: 3★＝一般还行,
-  4★＝挺好看值得, 5★＝情绪冲顶.
+- **Profile evidence:** prefer `profile/USER.md` plus
+  `profile/INFERENCES.md`. Fall back to legacy `TASTE.md` for instance #1.
 - **Pitch target: the 70th percentile of the candidate's cell,
   mid-rank convention.** A candidate survives the critic's
   predicted-rating check when its `predicted_percentile` reaches **70**
@@ -17,7 +16,12 @@ the `media-hub` repo root.
   floor" below for the measured ladders and why 70 rather than 80. This
   is the line the orchestrator copies verbatim into the critic's prompt,
   tie convention included.
-- **Pitch cap: 5** (spec: pitch 2–5 survivors). Pass this to the critic
+  **True cold-start exception:** when `distribution` reports `overall.n: 0`,
+  no percentile is available. Pass the empty distribution through and use
+  the cold-start rules in SCOUT.md and CRITIC.md until the user has rated
+  history; never fabricate a personal base rate.
+- **Pitch cap: 10** (target 8–10 selected survivors when the evidence supports
+  them). Pass this to the critic
   with the pitch target; the critic ranks and marks which survivors fit
   the cap, and the orchestrator pitches that selection as given.
 - **History DB:** `media.db` — kinds in scope: `film,tv,show,drama`.

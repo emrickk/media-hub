@@ -24,7 +24,8 @@ Subcommands
 `attach-evidence` cache one candidate's fetched review evidence permanently
                   (`evidence` + `evidence_fetched_at`).
 `suppress-sync`   mark pool rows suppressed when the candidate has since
-                  been watched/is-watching, or was previously rejected
+                  been watched/is-watching (including a recommendation
+                  reaction recorded as `watched`), or was previously rejected
                   (`recommendations.verdict='no'`). UPDATE only, idempotent.
 `stats`           pool-wide counts: total, by kind, evidence-cached,
                   suppressed, per-channel provenance.
@@ -443,8 +444,16 @@ def cmd_suppress_sync(con, args):
         _watched_season_identity(con)
     watched_pairs |= watched_show_ids
 
+    watched_rec_pairs, watched_rec_tyk = set(), set()
+    for rr in con.execute(
+            "SELECT title, year, kind, external_ids FROM recommendations "
+            "WHERE verdict='watched'"):
+        watched_rec_pairs.update(json.loads(rr["external_ids"] or "{}").items())
+        watched_rec_tyk.add((rr["kind"], (rr["title"] or "").lower(), rr["year"]))
+    watched_pairs |= watched_rec_pairs
+
     open_rows = con.execute(
-        "SELECT id, title, year, external_ids FROM candidate_pool "
+        "SELECT id, kind, title, year, external_ids FROM candidate_pool "
         "WHERE suppressed=0").fetchall()
     watched_ids = []
     for r in open_rows:
@@ -457,7 +466,9 @@ def cmd_suppress_sync(con, args):
                 family_years = sibling_years.get(base)
                 title_match = bool(family_years) and \
                     (r["year"] is None or r["year"] in family_years)
-        if id_match or title_match:
+        rec_match = (r["kind"], (r["title"] or "").lower(), r["year"]) \
+            in watched_rec_tyk
+        if id_match or title_match or rec_match:
             watched_ids.append(r["id"])
     if watched_ids:
         con.executemany(

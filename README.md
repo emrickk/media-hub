@@ -9,6 +9,26 @@ TMDB, Spotify and WeRead are loader inputs or consumers; none of them is
 the source of truth. **The database is not in this repo** (see
 [What's deliberately missing](#whats-deliberately-missing)).
 
+## Start with only your chat history
+
+This repository is designed to live inside Codex or Claude Code. Give your
+coding agent the GitHub URL and say:
+
+> Clone this repository, read `skills/media-taste/SKILL.md`, and set it up for
+> me. You may read my local Codex/Claude conversations, but ask me first what I
+> want excluded. Then recommend something.
+
+The agent reads the permitted conversations, separates what you explicitly
+expressed from what it only infers, initializes a local database, runs the
+scout and blind rejecting critic, and aims for an HTML page with 8–10 rich
+cards (fewer when the critic finds that the evidence does not support them).
+Nothing personal is committed back to GitHub.
+
+The page accepts **Start now**, **Bookmark**, **Wrong title**, **Right title,
+weak pitch**, or **Already seen**, plus written feedback. Copy the result back
+to the agent: wrong titles are suppressed, weak pitches remain eligible for a
+better explanation, and watched/rated works strengthen the next round.
+
 ---
 
 ## The recommendation engine
@@ -59,10 +79,10 @@ convincing its reasoning sounded.
 /recommend 下饭剧，低认知负荷，可打断
 ```
 
-The `/recommend` skill (`.claude/skills/recommend/SKILL.md`) orchestrates
+The recommendation skill (`.claude/skills/recommend/SKILL.md`) orchestrates
 it end to end and opens an HTML page with covers, synopses, the case for
-each pick, the sealed prediction, and buttons that build the verdict
-command.
+each pick, concrete inside-the-work hooks and entry points, the sealed
+prediction, and differentiated feedback buttons.
 
 Render a logged slate again at any time — read-only, safe to run while
 anything else holds the DB:
@@ -98,6 +118,8 @@ the only measurement of whether any of it works.**
 | `STATE.md` | living status — read before starting work, update when you change state |
 | `TASTE.md` | the taste profile the critic binds to. The user's own voice; **never co-edited** |
 | `recommend/SCOUT.md` · `CRITIC.md` | the engine, as prose contracts. User-agnostic |
+| `recommend/PROFILER.md` | chat history → expressed evidence and engine inference |
+| `skills/media-taste/SKILL.md` | the clone-to-first-recommendation journey |
 | `recommend/README.md` | instance bindings — profile path, pitch target, write ritual |
 | `recommend/HANDOFF.md` | cold-start guide. Read this first if you're picking the system up |
 | `recommend/*.py` | the deterministic edges: history, pool, harvesters, log, render |

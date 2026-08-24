@@ -58,7 +58,30 @@ CREATE TABLE IF NOT EXISTS recommendations (
 );
 CREATE INDEX IF NOT EXISTS idx_reco_title ON recommendations(title, year);
 """
+FEEDBACK_DDL = """
+CREATE TABLE IF NOT EXISTS recommendation_feedback (
+    id INTEGER PRIMARY KEY,
+    recommendation_id INTEGER NOT NULL REFERENCES recommendations(id),
+    reaction TEXT NOT NULL CHECK (reaction IN
+        ('start','bookmark','wrong_title','weak_pitch','seen','note')),
+    note TEXT NOT NULL DEFAULT '',
+    miss_part TEXT NOT NULL DEFAULT '' CHECK (miss_part IN
+        ('','retrieval','profile-gap','judgment','axis','delivery')),
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_recommendation
+    ON recommendation_feedback(recommendation_id);
+"""
 VERDICTS = ("interested", "no", "meh", "watched")
+REACTIONS = {
+    "start": ("interested", ""),
+    "bookmark": ("interested", ""),
+    "wrong_title": ("no", "judgment"),
+    "weak_pitch": ("meh", "delivery"),
+    "seen": ("watched", "retrieval"),
+    "note": (None, ""),
+}
+MISS_PARTS = {"", "retrieval", "profile-gap", "judgment", "axis", "delivery"}
 LOG_REQUIRED_FIELDS = ("intention", "kind", "title")
 STARS_MIN, STARS_MAX = 0.5, 5.0
 BUSY_TIMEOUT_MS = 15000
@@ -75,7 +98,7 @@ def connect(path: str) -> sqlite3.Connection:
     return con
 
 def cmd_init(con, args):
-    con.executescript(DDL); con.commit()
+    con.executescript(DDL + FEEDBACK_DDL); con.commit()
     print("ok")
 
 def _validate_log_rows(rows) -> list[str]:
@@ -198,6 +221,102 @@ def cmd_verdict(con, args):
         sys.exit(f"no recommendation row with id {args.id}")
     print("ok")
 
+
+def _feedback_rows(payload):
+    if isinstance(payload, list):
+        return payload, ""
+    if isinstance(payload, dict):
+        return payload.get("feedback"), (payload.get("overall") or "").strip()
+    return None, ""
+
+
+def _validate_feedback(con, rows, *, allow_empty=False) -> list[str]:
+    if not isinstance(rows, list):
+        return ["feedback must be a non-empty list"]
+    if not rows:
+        return [] if allow_empty else ["feedback must be a non-empty list"]
+    errors, ids = [], set()
+    for index, row in enumerate(rows):
+        label = f"row {index}"
+        if not isinstance(row, dict):
+            errors.append(f"{label}: expected a JSON object")
+            continue
+        rid, reaction = row.get("id"), row.get("reaction")
+        if not isinstance(rid, int):
+            errors.append(f"{label}: id must be an integer")
+        elif rid in ids:
+            errors.append(f"{label}: duplicate recommendation id {rid}")
+        else:
+            ids.add(rid)
+            found = con.execute(
+                "select critic_killed from recommendations where id=?", (rid,)
+            ).fetchone()
+            if found is None:
+                errors.append(f"{label}: no recommendation row with id {rid}")
+            elif found["critic_killed"]:
+                errors.append(f"{label}: recommendation {rid} was critic-killed and never pitched")
+        if reaction not in REACTIONS:
+            errors.append(f"{label}: bad reaction {reaction!r}; expected one of "
+                          f"{sorted(REACTIONS)}")
+        miss_part = row.get("miss_part")
+        if miss_part is not None and miss_part not in MISS_PARTS:
+            errors.append(f"{label}: bad miss_part {miss_part!r}")
+        if row.get("note") is not None and not isinstance(row.get("note"), str):
+            errors.append(f"{label}: note must be a string")
+    return errors
+
+
+def cmd_feedback(con, args):
+    """Ingest a whole HTML feedback packet transactionally.
+
+    The legacy verdict remains the scoring/suppression interface. The richer
+    reaction is stored separately so a bad title and a bad explanation never
+    collapse into the same learning signal.
+    """
+    payload = json.loads(open(args.json, encoding="utf-8").read())
+    rows, overall = _feedback_rows(payload)
+    con.executescript(FEEDBACK_DDL)
+    problems = _validate_feedback(con, rows, allow_empty=bool(overall))
+    if problems:
+        sys.exit("feedback batch failed validation, nothing recorded:\n"
+                 + "\n".join(f"  - {problem}" for problem in problems))
+    timestamp = now()
+    try:
+        for row in rows:
+            reaction = row["reaction"]
+            verdict, default_part = REACTIONS[reaction]
+            note = (row.get("note") or "").strip()
+            miss_part = row.get("miss_part")
+            if miss_part is None:
+                miss_part = default_part
+            con.execute(
+                "insert into recommendation_feedback "
+                "(recommendation_id,reaction,note,miss_part,created_at) "
+                "values (?,?,?,?,?)",
+                (row["id"], reaction, note, miss_part, timestamp))
+            if verdict is not None:
+                con.execute(
+                    "update recommendations set verdict=?, verdict_note=?, "
+                    "verdict_date=?, updated_at=? where id=?",
+                    (verdict, note, timestamp, timestamp, row["id"]))
+    except Exception:
+        con.rollback()
+        raise
+    con.commit()
+    print(json.dumps({"recorded": len(rows), "overall": overall}, ensure_ascii=False))
+
+
+def cmd_feedback_stats(con, args):
+    con.executescript(FEEDBACK_DDL)
+    by_reaction = {row["reaction"]: row["n"] for row in con.execute(
+        "select reaction,count(*) n from recommendation_feedback "
+        "group by reaction order by reaction")}
+    by_miss_part = {row["miss_part"]: row["n"] for row in con.execute(
+        "select miss_part,count(*) n from recommendation_feedback "
+        "where miss_part<>'' group by miss_part order by miss_part")}
+    print(json.dumps({"by_reaction": by_reaction,
+                      "by_miss_part": by_miss_part}, ensure_ascii=False))
+
 def cmd_pending(con, args):
     rows = con.execute(
         """SELECT * FROM recommendations
@@ -254,13 +373,17 @@ def main():
     s.add_argument("--id", type=int, required=True)
     s.add_argument("--verdict", choices=VERDICTS, required=True)
     s.add_argument("--note")
+    s = sub.add_parser("feedback")
+    s.add_argument("--json", required=True)
+    sub.add_parser("feedback-stats")
     sub.add_parser("pending")
     sub.add_parser("stats")
     args = p.parse_args()
     con = connect(args.db)
     try:
         {"init": cmd_init, "log": cmd_log, "check": cmd_check,
-         "verdict": cmd_verdict, "pending": cmd_pending,
+         "verdict": cmd_verdict, "feedback": cmd_feedback,
+         "feedback-stats": cmd_feedback_stats, "pending": cmd_pending,
          "stats": cmd_stats}[args.cmd](con, args)
     finally:
         con.close()

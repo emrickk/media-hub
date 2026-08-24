@@ -5,7 +5,19 @@
 > douban-export/RUNBOOK.md. Machine-local agent memory does NOT sync across
 > computers — this file is the cross-machine handoff.
 
-**Last updated:** 2026-08-23 (session: Douban harvest completed — the
+**Last updated:** 2026-08-24 (session: lean chat-history recommendation MVP
+completed. A coding agent can now read permitted conversation history directly
+under `recommend/PROFILER.md`, keep user evidence separate from uncertain
+inference in ignored local profile files, bootstrap an empty local DB, run the
+existing scout + blind critic gate, render rich cards with concrete entry
+points and inside-the-work hooks, and ingest differentiated feedback. `start`
+and `bookmark` are positive; `wrong_title` suppresses the work;
+`weak_pitch` keeps it eligible for a better explanation; `seen` records and
+suppresses it. The copyable feedback packet is transactional. True cold start
+does not fabricate rating percentiles. Verification: 158 recommend tests pass,
+the repository skill validates, and the isolated product-flow test covers
+bootstrap → recommendation → HTML → feedback → future suppression. Prior:
+2026-08-23 session: Douban harvest completed — the
 `harvest_douban.py` checkpoint went from 69/298 to 298/298 anchors, all
 `status: fetched`, no blocks or circuit-breaker trips across 5 sequential
 `fetch` invocations; the whole raw corpus was then re-transformed under

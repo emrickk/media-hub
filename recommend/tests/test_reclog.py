@@ -40,6 +40,10 @@ def test_init_creates_table(tmp_path):
             "predicted_stars", "predicted_confidence", "critic_killed",
             "kill_reason", "verdict", "verdict_note", "verdict_date",
             "work_id", "session_date"} <= cols
+    feedback_cols = {r[1] for r in con.execute(
+        "PRAGMA table_info(recommendation_feedback)")}
+    assert {"recommendation_id", "reaction", "note", "miss_part",
+            "created_at"} <= feedback_cols
 
 def test_log_and_check_by_ext_id(tmp_path):
     db = make_db(tmp_path)
@@ -302,3 +306,108 @@ def test_log_prints_inserted_ids_in_batch_order(tmp_path):
     titles = [con.execute("SELECT title FROM recommendations WHERE id=?",
                           (i,)).fetchone()[0] for i in ids]
     assert titles == ["First", "Second", "Third"]
+
+
+def test_rich_feedback_preserves_reaction_and_maps_existing_verdicts(tmp_path):
+    db = make_db(tmp_path)
+    batch = [dict(SAMPLE[0], title="Start", external_ids={"tmdb": "1"}),
+             dict(SAMPLE[0], title="Wrong", external_ids={"tmdb": "2"}),
+             dict(SAMPLE[0], title="Pitch", external_ids={"tmdb": "3"}),
+             dict(SAMPLE[0], title="Seen", external_ids={"tmdb": "4"})]
+    f = tmp_path / "recommendations.json"; f.write_text(json.dumps(batch))
+    ids = json.loads(run(db, "log", "--json", str(f)).stdout)
+    feedback = {"overall": "The titles were stronger than the wording.", "feedback": [
+        {"id": ids[0], "reaction": "start", "note": "Tonight."},
+        {"id": ids[1], "reaction": "wrong_title", "note": "Not interested."},
+        {"id": ids[2], "reaction": "weak_pitch", "note": "Tell me what happens."},
+        {"id": ids[3], "reaction": "seen", "note": "Watched years ago."},
+    ]}
+    ff = tmp_path / "feedback.json"; ff.write_text(json.dumps(feedback))
+
+    out = run(db, "feedback", "--json", str(ff))
+
+    assert out.returncode == 0, out.stderr
+    con = sqlite3.connect(db)
+    assert dict(con.execute("select id, verdict from recommendations").fetchall()) == {
+        ids[0]: "interested", ids[1]: "no", ids[2]: "meh", ids[3]: "watched",
+    }
+    rows = con.execute(
+        "select reaction, note, miss_part from recommendation_feedback order by id"
+    ).fetchall()
+    assert rows == [
+        ("start", "Tonight.", ""),
+        ("wrong_title", "Not interested.", "judgment"),
+        ("weak_pitch", "Tell me what happens.", "delivery"),
+        ("seen", "Watched years ago.", "retrieval"),
+    ]
+
+
+def test_rich_feedback_is_atomic_and_rejects_unknown_reaction(tmp_path):
+    db = make_db(tmp_path)
+    f = tmp_path / "b.json"; f.write_text(json.dumps(SAMPLE))
+    rid = json.loads(run(db, "log", "--json", str(f)).stdout)[0]
+    feedback = {"feedback": [
+        {"id": rid, "reaction": "bookmark"},
+        {"id": rid, "reaction": "ban_forever"},
+    ]}
+    ff = tmp_path / "bad-feedback.json"; ff.write_text(json.dumps(feedback))
+
+    out = run(db, "feedback", "--json", str(ff))
+
+    assert out.returncode != 0
+    assert "ban_forever" in out.stderr
+    con = sqlite3.connect(db)
+    assert con.execute("select verdict from recommendations where id=?", (rid,)).fetchone()[0] is None
+    assert con.execute("select count(*) from recommendation_feedback").fetchone()[0] == 0
+
+
+def test_feedback_stats_separates_delivery_from_title_misses(tmp_path):
+    db = make_db(tmp_path)
+    batch = [dict(SAMPLE[0], title="A", external_ids={"tmdb": "1"}),
+             dict(SAMPLE[0], title="B", external_ids={"tmdb": "2"})]
+    f = tmp_path / "b.json"; f.write_text(json.dumps(batch))
+    ids = json.loads(run(db, "log", "--json", str(f)).stdout)
+    ff = tmp_path / "feedback.json"; ff.write_text(json.dumps({"feedback": [
+        {"id": ids[0], "reaction": "wrong_title"},
+        {"id": ids[1], "reaction": "weak_pitch"},
+    ]}))
+    assert run(db, "feedback", "--json", str(ff)).returncode == 0
+
+    stats = json.loads(run(db, "feedback-stats").stdout)
+
+    assert stats["by_reaction"] == {"weak_pitch": 1, "wrong_title": 1}
+    assert stats["by_miss_part"] == {"delivery": 1, "judgment": 1}
+
+
+def test_note_only_feedback_does_not_force_a_verdict(tmp_path):
+    db = make_db(tmp_path)
+    f = tmp_path / "b.json"; f.write_text(json.dumps(SAMPLE))
+    rid = json.loads(run(db, "log", "--json", str(f)).stdout)[0]
+    ff = tmp_path / "note.json"; ff.write_text(json.dumps({"feedback": [
+        {"id": rid, "reaction": "note", "note": "The cover works; the text does not."},
+    ]}))
+
+    out = run(db, "feedback", "--json", str(ff))
+
+    assert out.returncode == 0, out.stderr
+    con = sqlite3.connect(db)
+    assert con.execute("select verdict from recommendations where id=?", (rid,)).fetchone()[0] is None
+    assert con.execute("select reaction,note from recommendation_feedback").fetchone() == (
+        "note", "The cover works; the text does not.")
+
+
+def test_overall_language_feedback_without_a_card_reaction_is_accepted(tmp_path):
+    db = make_db(tmp_path)
+    ff = tmp_path / "overall.json"
+    ff.write_text(json.dumps({
+        "overall": "The covers worked, but explain the actual plots more directly.",
+        "feedback": [],
+    }))
+
+    out = run(db, "feedback", "--json", str(ff))
+
+    assert out.returncode == 0, out.stderr
+    assert json.loads(out.stdout) == {
+        "recorded": 0,
+        "overall": "The covers worked, but explain the actual plots more directly.",
+    }

@@ -145,6 +145,10 @@ def card_of(row: sqlite3.Row) -> dict:
         "evidence_chain": critic.get("evidence_chain") or [],
         "risks": critic.get("residual_risks") or [],
         "shape": scout.get("shape", {}) or {},
+        "enrichment": scout.get("enrichment", {}) or {},
+        "evidence_density": scout.get("evidence_density", ""),
+        "appetite": critic.get("predicted_appetite", ""),
+        "appetite_case": (critic.get("appetite_case") or "").strip(),
         "verdict": row["verdict"],
         "intention": row["intention"],
         "session_date": row["session_date"],
@@ -430,6 +434,65 @@ def pretty(stamp: str) -> str:
         return stamp or ""
 
 
+def render_enrichment(card: dict) -> str:
+    enrichment = card.get("enrichment") or {}
+    if not enrichment:
+        return ""
+
+    parts = []
+    knowledge = enrichment.get("knowledge")
+    if knowledge == "thin":
+        parts.append('<p class="knowledge">Knowledge is thin — specifics are intentionally limited.</p>')
+
+    for label, key, css in (
+            ("What it is", "summary", "summary"),
+            ("What makes it special", "special", "special"),
+            ("Why I picked it for you", "personal_hook", "personal"),
+            ("Good to know", "good_to_know", "good-to-know")):
+        value = enrichment.get(key)
+        if value:
+            parts.append(f'<section class="enrich enrich--{css}"><h3>{label}</h3>'
+                         f'<p>{esc(value)}</p></section>')
+
+    entry = enrichment.get("entry") or {}
+    if entry.get("applicable") and any(entry.get(key) for key in
+                                        ("start_at", "why", "exit_test")):
+        lines = []
+        if entry.get("start_at"):
+            lines.append(f'<strong>{esc(entry["start_at"])}</strong>')
+        if entry.get("why"):
+            lines.append(esc(entry["why"]))
+        if entry.get("exit_test"):
+            lines.append(f'<span class="exit-test">Exit test: {esc(entry["exit_test"])}</span>')
+        parts.append('<section class="enrich enrich--entry"><h3>Where to start</h3>'
+                     + "".join(f"<p>{line}</p>" for line in lines) + "</section>")
+
+    inside = enrichment.get("inside") or {}
+    moments = [moment for moment in inside.get("moments", []) if moment]
+    quotes = [quote for quote in inside.get("quotes", []) if isinstance(quote, dict)
+              and quote.get("text")]
+    if moments or quotes:
+        items = "".join(f"<li>{esc(moment)}</li>" for moment in moments)
+        quote_html = "".join(
+            f'<blockquote>“{esc(quote["text"])}”'
+            + (f'<cite>— {esc(quote.get("speaker"))}</cite>' if quote.get("speaker") else "")
+            + "</blockquote>" for quote in quotes)
+        parts.append('<section class="enrich enrich--inside"><h3>Inside it</h3>'
+                     + (f"<ul>{items}</ul>" if items else "") + quote_html + "</section>")
+
+    reception = enrichment.get("reception")
+    if reception:
+        parts.append(f'<p class="reception">{esc(reception)}</p>')
+    ratings = enrichment.get("ratings") or []
+    valid_ratings = [rating for rating in ratings if isinstance(rating, dict)
+                     and rating.get("source") and rating.get("value")]
+    if valid_ratings:
+        parts.append('<p class="external-ratings">' + "".join(
+            f'<span class="chip">{esc(rating["source"])} {esc(rating["value"])}</span>'
+            for rating in valid_ratings) + "</p>")
+    return "".join(parts)
+
+
 def render_card(card: dict, dimmed: bool = False) -> str:
     poster = data_uri(card.get("poster_file"))
     poster_html = (f'<img class="poster" src="{poster}" alt="">' if poster
@@ -450,6 +513,9 @@ def render_card(card: dict, dimmed: bool = False) -> str:
                     f'{pct:g} 分位</span>')
     conf = (f'<span class="chip chip--{esc(card["confidence"])}">'
             f'把握 {esc(card["confidence"])}</span>' if card["confidence"] else "")
+    appetite = card.get("appetite")
+    appetite_html = (f'<span class="chip appetite appetite--{esc(appetite)}">'
+                     f'Appetite {esc(appetite)}</span>' if appetite else "")
 
     # External aggregate, shown rather than left to be guessed from the art.
     vote = card.get("vote")
@@ -464,7 +530,12 @@ def render_card(card: dict, dimmed: bool = False) -> str:
     # The case is the persuasive argument for watching it; the critic's
     # selection_reason is bookkeeping about the slate. Lead with the case.
     why = card["case"] or card["ask_fit"] or card["selection_reason"]
-    why_html = f'<p class="why">{esc(why)}</p>' if why else ""
+    # Rich cards carry their persuasive argument in `personal_hook`; keep the
+    # legacy case only when enrichment is absent so the user is not shown two
+    # paragraphs making the same claim in different language.
+    why_html = (f'<p class="why">{esc(why)}</p>'
+                if why and not card.get("enrichment") else "")
+    enrichment_html = render_enrichment(card)
 
     detail_items = []
     if card["selection_reason"] and card["selection_reason"] != why:
@@ -494,25 +565,34 @@ def render_card(card: dict, dimmed: bool = False) -> str:
     overview_html = f'<p class="overview">{esc(overview)}</p>' if overview else ""
 
     rank = f'<span class="rank">{card["rank"]}</span>' if card.get("rank") else ""
-    verdict_cmd = (f'python3 recommend/reclog.py --db media.db verdict '
-                   f'--id {card["id"]} --verdict interested')
-    verdict_html = (
-        f'<div class="verdict">'
-        f'<button class="v" data-v="interested" data-id="{card["id"]}">感兴趣</button>'
-        f'<button class="v" data-v="meh" data-id="{card["id"]}">一般</button>'
-        f'<button class="v" data-v="no" data-id="{card["id"]}">不看</button>'
-        f'<button class="v" data-v="watched" data-id="{card["id"]}">看过了</button>'
-        f'<span class="recid" title="{esc(verdict_cmd)}">#{card["id"]}</span>'
-        f'</div>')
+    verdict_html = ""
+    if not card["killed"]:
+        labels = (
+            ("start", "▶ Start now"), ("bookmark", "＋ Bookmark"),
+            ("wrong_title", "× Wrong title"),
+            ("weak_pitch", "≈ Right title, weak pitch"),
+            ("seen", "✓ Already seen"),
+        )
+        buttons = "".join(
+            f'<button class="v" data-reaction="{reaction}" '
+            f'data-id="{card["id"]}">{label}</button>'
+            for reaction, label in labels)
+        verdict_html = (
+            f'<div class="verdict" data-card-id="{card["id"]}">{buttons}'
+            f'<span class="recid">#{card["id"]}</span>'
+            f'<textarea class="feedback-note" data-id="{card["id"]}" '
+            f'placeholder="What specifically attracted or lost you? (optional)"></textarea>'
+            f'</div>')
 
     return f'''<article class="card{' card--dim' if dimmed else ''}">
   {poster_html}
   <div class="body">
     <h2>{rank}{esc(card["title"])}{orig_html}</h2>
     <p class="meta">{esc(" · ".join(meta_bits))}</p>
-    <p class="pred">{stars_html(card["stars"])}{vote_html}{pct_html}{conf}</p>
+    <p class="pred">{stars_html(card["stars"])}{vote_html}{pct_html}{conf}{appetite_html}</p>
     {overview_html}
     {why_html}
+    {enrichment_html}
     {kill_html}
     {warn_html}
     {risks_html}
@@ -565,6 +645,20 @@ h2{font-size:20px;margin:0 0 4px;line-height:1.35}
 .overview{margin:0 0 12px;font-size:14px;color:var(--dim)}
 .why{margin:0 0 12px;font-size:14.5px;border-left:2px solid var(--accent);
  padding-left:14px}
+.knowledge{font-size:12px;color:var(--dim);margin:0 0 12px}
+.enrich{margin:15px 0}
+.enrich h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+ color:var(--dim);margin:0 0 4px}
+.enrich p{font-size:14px;margin:0}
+.enrich--personal{border-left:2px solid var(--accent);padding-left:14px}
+.enrich--entry{background:var(--bg);border-radius:9px;padding:12px 14px}
+.enrich--entry p{margin:2px 0}.exit-test{color:var(--dim);font-size:12.5px}
+.enrich--inside ul{margin:5px 0 8px;padding-left:20px;font-size:13.5px}
+.enrich blockquote{margin:8px 0;padding-left:12px;border-left:1px solid var(--line);
+ font-size:13.5px;color:var(--dim)}
+.enrich cite{display:block;font-size:11px;font-style:normal;margin-top:2px}
+.reception{font-size:12.5px;color:var(--dim);margin:12px 0 6px}
+.external-ratings{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
 .kill{margin:0 0 10px;font-size:13px;color:var(--dim)}
 .warn{margin:0 0 10px;font-size:12.5px;color:#b4451f;background:rgba(180,69,31,.08);
  border-radius:7px;padding:8px 11px}
@@ -579,6 +673,9 @@ h2{font-size:20px;margin:0 0 4px;line-height:1.35}
  border:1px solid var(--line);background:transparent;color:var(--dim)}
 .v:hover{border-color:var(--accent);color:var(--accent)}
 .v.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.feedback-note{width:100%;min-height:58px;margin-top:5px;padding:9px 11px;
+ border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--fg);
+ font:inherit;font-size:12.5px;resize:vertical}
 .recid{margin-left:auto;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
 .section{margin:38px 0 16px;font-size:13px;color:var(--dim);
  text-transform:uppercase;letter-spacing:.08em}
@@ -590,8 +687,9 @@ h2{font-size:20px;margin:0 0 4px;line-height:1.35}
 #bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);
  border-top:1px solid var(--line);padding:12px 20px;display:none;
  align-items:center;gap:14px;justify-content:center;font-size:13px}
-#bar code{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;
- white-space:nowrap;max-width:52vw}
+#bar span{font-size:12px;color:var(--dim)}
+#overall{font:inherit;font-size:12px;min-width:220px;max-width:34vw;padding:6px 9px;
+ border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--fg)}
 #bar button{font:inherit;font-size:12.5px;padding:5px 14px;border-radius:99px;
  border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
 @media (max-width:620px){.card{flex-direction:column}
@@ -599,33 +697,53 @@ h2{font-size:20px;margin:0 0 4px;line-height:1.35}
 """
 
 JS = """
-const picks = new Map();
-document.querySelectorAll('.v').forEach(b => b.onclick = () => {
+const storageKey = `media-hub-feedback:${document.title}`;
+const saved = JSON.parse(localStorage.getItem(storageKey) || '{"cards":{},"overall":""}');
+const cards = saved.cards || {};
+function persist() { saved.cards = cards; saved.overall = document.getElementById('overall').value;
+  localStorage.setItem(storageKey, JSON.stringify(saved)); draw(); }
+document.querySelectorAll('.v').forEach(b => {
   const id = b.dataset.id;
-  b.parentElement.querySelectorAll('.v').forEach(o => o.classList.remove('on'));
-  if (picks.get(id) === b.dataset.v) { picks.delete(id); }
-  else { picks.set(id, b.dataset.v); b.classList.add('on'); }
-  draw();
+  if (cards[id]?.reaction === b.dataset.reaction) b.classList.add('on');
+  b.onclick = () => {
+    const current = cards[id] || {};
+    current.reaction = current.reaction === b.dataset.reaction ? '' : b.dataset.reaction;
+    cards[id] = current;
+    b.parentElement.querySelectorAll('.v').forEach(o =>
+      o.classList.toggle('on', o.dataset.reaction === current.reaction));
+    persist();
+  };
 });
-function cmd() {
-  return [...picks].map(([id, v]) =>
-    `python3 recommend/reclog.py --db media.db verdict --id ${id} --verdict ${v}`
-  ).join(' && ');
+document.querySelectorAll('.feedback-note').forEach(note => {
+  const id = note.dataset.id; note.value = cards[id]?.note || '';
+  note.oninput = () => { const current = cards[id] || {}; current.note = note.value;
+    cards[id] = current; persist(); };
+});
+function packet() {
+  return {schema: 'media-hub-feedback-v1', overall: document.getElementById('overall').value,
+    feedback: Object.entries(cards).filter(([,v]) => v.reaction || (v.note || '').trim()).map(([id,v]) =>
+      ({id: Number(id), reaction: v.reaction || 'note', note: v.note || ''}))};
+}
+function copyText() {
+  return `Media Hub feedback\n\n${JSON.stringify(packet(), null, 2)}\n\n` +
+    `Record this packet with: python3 recommend/reclog.py --db media.db feedback --json <packet.json>`;
 }
 function draw() {
   const bar = document.getElementById('bar');
-  if (!picks.size) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-  document.getElementById('cmd').textContent = cmd();
+  const count = Object.values(cards).filter(v => v.reaction || (v.note || '').trim()).length;
+  bar.style.display = count || document.getElementById('overall').value ? 'flex' : 'none';
+  document.getElementById('count').textContent = `${count} reaction${count === 1 ? '' : 's'}`;
 }
+document.getElementById('overall').value = saved.overall || '';
+document.getElementById('overall').oninput = persist;
 document.getElementById('copy').onclick = async (e) => {
-  try { await navigator.clipboard.writeText(cmd());
-        e.target.textContent = '已复制';
-        setTimeout(() => e.target.textContent = '复制记录命令', 1600); }
-  catch { const r = document.createRange();
-          r.selectNode(document.getElementById('cmd'));
-          getSelection().removeAllRanges(); getSelection().addRange(r); }
+  try { await navigator.clipboard.writeText(copyText());
+        e.target.textContent = 'Copied';
+        setTimeout(() => e.target.textContent = 'Copy feedback for Codex / Claude', 1600); }
+  catch { const helper = document.createElement('textarea'); helper.value = copyText();
+    document.body.appendChild(helper); helper.select(); document.execCommand('copy'); helper.remove(); }
 };
+draw();
 """
 
 
@@ -676,7 +794,9 @@ def page_shell(title: str, inner: str) -> str:
 <body><div class="wrap">
 {inner}
 </div>
-<div id="bar"><code id="cmd"></code><button id="copy">复制记录命令</button></div>
+<div id="bar"><span id="count"></span><input id="overall" type="text"
+ placeholder="Anything true across several recommendations?">
+ <button id="copy">Copy feedback for Codex / Claude</button></div>
 <script>{JS}</script>
 </body></html>'''
 

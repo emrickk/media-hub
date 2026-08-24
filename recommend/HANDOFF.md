@@ -1,6 +1,6 @@
 # HANDOFF — media-hub recommend system
 
-**Written:** 2026-08-23, at the end of the session that built and calibrated v1.
+**Written:** 2026-08-23, updated 2026-08-24 for the chat-history product MVP.
 **For:** any agent (Codex or otherwise) picking this up cold. Read this file
 top to bottom before touching anything. It is written to be self-contained —
 you do not need the originating conversation.
@@ -13,11 +13,13 @@ to below as the **repo root**).
 
 ## 1. What this is
 
-A personal film/TV recommendation system. You give it a free-text ask
+A local-first film/TV recommendation system. A new user gives the repository
+to Codex or Claude Code, permits access to selected conversation history, and
+the agent builds a cautious taste profile before answering a free-text ask
 (`我最近看了 the office，有没有别的推荐？`), it searches external catalogs,
-and a deliberately **blind critic** predicts what Anping himself would rate
-each candidate — based on his 1,702 rated works — rejecting anything that
-would not land in the top slice of what he actually likes.
+and a deliberately **blind critic** rejects weak candidates before the user
+sees them. The original Anping instance still uses his calibrated rated history;
+a new user's true cold start remains provisional until ratings accumulate.
 
 Its unusual property: **most of the program is prose.** `recommend/SCOUT.md`
 and `recommend/CRITIC.md` are read by an LLM at runtime as its operating
@@ -25,7 +27,9 @@ contract. A wording ambiguity in those files is a runtime bug and must be
 treated as harshly as a code defect. The Python files are only the
 deterministic I/O edges.
 
-**Status: COMPLETE and running.** v1 (judgment layer) built and calibrated;
+**Status: COMPLETE and running.** The lean product path is
+`README.md` → `skills/media-taste/SKILL.md` → `recommend/PROFILER.md` →
+scout → blind critic → rich HTML → feedback. v1 (judgment layer) is calibrated;
 v2 (candidate pool + platform-CF harvesting) built, fully harvested (298/298
 Douban anchors, 6,473 candidates), and wired to a monthly scheduled refresh.
 The system has run end-to-end on four real asks. Remaining work is deferred
@@ -41,12 +45,11 @@ scope only (see §8/§9), not unfinished build.
 2. `docs/superpowers/specs/2026-08-23-media-recommend-v2-pool-design.md` —
    v2 (candidate pool + platform-CF). **Amends** v1; its §6 pins exactly what
    v1 keeps unchanged.
-3. `docs/superpowers/plans/2026-08-23-media-recommend-v2-pool.md` — the
-   6-task v2 implementation plan. **This is the next work to do.**
+3. `docs/superpowers/plans/2026-08-24-chat-history-product.md` — the lean
+   product plan now implemented. The older enrichment plan is superseded.
 4. `docs/superpowers/decisions/2026-08-23-media-recommend-decision-log.md` —
    every ruling made during the build, each with its reasoning and what it
-   costs if wrong. **There is no git here, so this file is the only record
-   of why things are the way they are.** Read it before overriding anything.
+   costs if wrong. Read it before overriding anything.
 5. `recommend/README.md` — instance bindings (profile path, DB, pitch
    target, write ritual, helper CLIs).
 6. `../CLAUDE.md` and `./ARCHITECTURE.md`, `./STATE.md` — house rules for
@@ -61,19 +64,23 @@ scope only (see §8/§9), not unfinished build.
 ```
 recommend/SCOUT.md        retrieval + funnel contract   (engine, user-agnostic)
 recommend/CRITIC.md       blind adversarial gate        (engine, user-agnostic)
-recommend/README.md       instance bindings             (Anping-specific — the ONLY place user facts live)
+recommend/PROFILER.md     direct chat-history distillation contract
+recommend/README.md       runtime bindings; new-user personal state stays under ignored profile/
 recommend/DIGEST-INTENT.md  stored default ask for digest mode
 recommend/history.py      one-transaction history snapshot + index/lookup/distribution/cell/percentile-of
 recommend/reclog.py       the recommendations log (the system's ONLY write surface)
+recommend/bootstrap.py    minimal first-run database creation
+recommend/render.py       rich cards + copyable feedback packet
 recommend/precedence.py   shared source-precedence helper
 recommend/tests/          76 tests, all passing
 recommend/logs/           per-run funnel logs (audit trail; a deliverable, not bookkeeping)
 .claude/skills/recommend/SKILL.md   the /recommend orchestration entry point
+skills/media-taste/SKILL.md         clone-and-run agent entry point
 ```
 
 **Verify it still works:**
 ```
-python3 -m pytest recommend/tests/ -q          # expect: 76 passed
+python3 -m pytest recommend/tests/ -q          # expect: 158 passed
 sqlite3 media.db "select count(*) from recommendations;"   # expect: 24
 python3 recommend/history.py --db media.db snapshot --out /tmp/s.json
 # expect: {"rated": 1702, "wishlist": 91, "shells": 222, "rec_log": 24}

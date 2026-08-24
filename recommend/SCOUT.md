@@ -108,6 +108,12 @@ From snap.json, assemble and log:
   rating semantics). These seed retrieval.
 - **Anti-anchors**: low-star neighbors; their review text tells you what
   failure looks like in this region.
+- **Version identity is mandatory.** A rating belongs to the exact work it
+  was attached to, not to an IP name. Before using an analogue, resolve its
+  year, kind, season/version, and review text. A remake does not stand for the
+  original; live action does not stand for animation; one regional version,
+  reboot, adaptation, source medium, or season does not automatically stand
+  for another. A low rating on one execution leaves the others untested.
 - **Shells — context and deduplication only, never a retrieval channel.
   This is standing policy, not a temporary tuning choice.** Every
   candidate this system pitches must originate outside the user's
@@ -286,6 +292,13 @@ already visibly doomed to fail a bar you can see. This replaces the
 Cut 1/Cut 2 progressive funnel below for interactive mode; go straight
 from the shortlist to dossiers for whatever survives it.
 
+**True cold start:** if the supplied distribution says `overall.n: 0`,
+there is no usable percentile bar yet. Do not invent one. Shortlist from
+direct and adjacent profile evidence, the ask, external evidence, likely
+appetite, and the candidate's own merits; then build only enough finalists
+for a slate of at most 10. Mark the run provisional. The critic applies its
+documented cold-start exception and still rejects weakly supported titles.
+
 **This does not weaken the critic's blindness, and a future reader must
 not "fix" this by removing it.** Blindness protects the critic from
 seeing the *scout's effort and search history* — the funnel log, the
@@ -377,7 +390,23 @@ assumption that a clean `sibling-seasons` result is airtight without ids.
                  "quote": "verbatim quote (tier 1); characterization (tier 2); metadata figure (tier 3) — what you actually read, never fabricated"}],
   "evidence_tier": 1,
   "history_analogues": [{"work_id": 0, "title": "...", "stars": 0.0,
+                          "version_match": "exact match or the named gap",
                           "relation": "why comparable"}],
+  "evidence_density": "anchored|adjacent|blank",
+  "enrichment": {
+    "knowledge": "rich|thin", "basis": "model-knowledge|fetched-evidence|mixed",
+    "summary": "plain explanation of what the work is",
+    "special": "what makes this work worth attention",
+    "personal_hook": "the concrete part likely to pull this user in",
+    "good_to_know": "useful context before starting, or omitted",
+    "entry": {"applicable": true, "start_at": "...", "why": "...",
+              "exit_test": "..."},
+    "inside": {"moments": ["2-3 spoiler-light concrete hooks"],
+               "quotes": [{"text": "short verified/model-known quote",
+                            "speaker": "character or show"}]},
+    "reception": "aggregate standing only, or omitted",
+    "ratings": [{"source": "IMDb|Letterboxd|TMDB|...", "value": "..."}]
+  },
   "confidence": {"ids": "high|medium|low", "shape": "...", "case": "..."},
   "flags": ["anything the critic should probe"]
 }
@@ -397,17 +426,33 @@ assumption that a clean `sibling-seasons` result is airtight without ids.
   such, not padded to look like Tier 1.
 - Thin dossiers are submitted anyway; killing is the critic's job and
   kills are data.
+- `evidence_density` is `anchored` when direct version-checked user analogues
+  exist, `adjacent` when only neighboring evidence exists, and `blank` when
+  the case rests on general profile reasoning. Blank is allowed but must be
+  honest.
+- Enrichment is generated only for finalists, from model knowledge and the
+  evidence already fetched for the dossier — never a new web-search project.
+  It must be concrete and spoiler-light. For `knowledge: thin`, omit quotes
+  and episode-specific claims rather than inventing them. Long episodic works
+  (>1 season or >13 episodes) require an honest entry point; films use
+  `entry.applicable: false`. Quotes are capped at two and fifteen words each.
+  Reception never invents a named critic/publication. A displayed rating must
+  come from the candidate's cached or freshly fetched evidence and name its
+  source; model memory is not enough for a number. Every field is optional
+  when knowledge is insufficient; confident mush is worse than an omission.
 - Write all dossiers to `<scratchpad>/dossiers.json` (a JSON list) and
   copy them into the funnel log.
 
 ## 6. Handoff
-Spawn the critic per CRITIC.md. The critic receives ONLY: the profile,
+Spawn the critic per CRITIC.md. The critic receives ONLY: the expressed user
+profile plus the engine inference profile (or the legacy single profile),
 the history (the **contents** of index.txt plus the **path** to
 snap.json, so it can query the whole history itself — never the
 snapshot inlined, and never a subset you selected), the rating
 distribution and one population cell per candidate (`history.py
 distribution` / `history.py cell` — the base rates its positional gate
-measures against), dossiers.json, the pitch target line, and CRITIC.md
+measures against), dossiers.json, the pitch target line (or the explicit
+true-cold-start marker when `overall.n: 0`), and CRITIC.md
 itself. Never pass the funnel log, channel yields, or any
 account of search effort — blindness is the point (spec A2.6, A3).
 Choosing which history the judge sees would destroy that blindness just
