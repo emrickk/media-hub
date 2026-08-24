@@ -78,7 +78,16 @@ def connect(path: str) -> sqlite3.Connection:
 
 
 def fetch_rows(con: sqlite3.Connection, ids: list[int] | None,
-               include_killed: bool) -> list[sqlite3.Row]:
+               include_killed: bool, pending: bool = False) -> list[sqlite3.Row]:
+    if pending:
+        # Every prediction still awaiting a reaction, across all asks.
+        # This is the view that makes the verdict loop possible: a slate
+        # rendered per-session shows you 4 of 18 and the other 14 are
+        # invisible, so they never get scored and hit_rate stays at 0.
+        return con.execute(
+            "select * from recommendations where critic_killed = 0 "
+            "and verdict is null order by session_date, id").fetchall()
+
     if ids:
         marks = ",".join("?" * len(ids))
         sql = f"select * from recommendations where id in ({marks})"
@@ -181,7 +190,7 @@ def get_bytes(url: str, headers: dict | None = None, timeout: int = 30) -> bytes
 
 
 def cache_key(ids: dict, title: str, year) -> str:
-    for k in ("tmdb_movie", "tmdb_tv", "douban", "imdb"):
+    for k in ("tmdb_movie", "tmdb_tv", "tmdb", "imdb", "douban"):
         if ids.get(k):
             return f"{k}_{ids[k]}"
     slug = re.sub(r"[^0-9A-Za-z一-鿿]+", "-", f"{title}-{year}").strip("-")
@@ -194,7 +203,23 @@ def _norm(s: str) -> str:
     return re.sub(r"[^0-9a-z一-鿿]+", "", (s or "").lower())
 
 
-def tmdb_detail(ids: dict, key: str) -> dict:
+def resolve_via_imdb(imdb_id: str, key: str) -> tuple[str, str] | None:
+    """An imdb tt id -> the TMDB detail path for the same work. TMDB's
+    /find is authoritative here, which is the whole point: it is a lookup
+    at the source, not a guess."""
+    q = urllib.parse.urlencode({"api_key": key, "external_source": "imdb_id"})
+    try:
+        data = get_json(f"{TMDB_BASE}/find/{imdb_id}?{q}")
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, TimeoutError):
+        return None
+    if data.get("movie_results"):
+        return f"/movie/{data['movie_results'][0]['id']}", "movie"
+    if data.get("tv_results"):
+        return f"/tv/{data['tv_results'][0]['id']}", "tv"
+    return None
+
+
+def tmdb_detail(ids: dict, key: str, kind: str = "") -> dict:
     """Poster path + zh-CN overview (English fallback) for one candidate,
     with the id checked against what TMDB says that id actually is.
 
@@ -209,6 +234,17 @@ def tmdb_detail(ids: dict, key: str) -> dict:
         path, media = f"/movie/{ids['tmdb_movie']}", "movie"
     elif ids.get("tmdb_tv"):
         path, media = f"/tv/{ids['tmdb_tv']}", "tv"
+    elif ids.get("tmdb"):
+        # v1 rows stored a bare `tmdb` key whose endpoint is implied by
+        # the work's kind rather than by the key name.
+        media = "tv" if kind in ("tv", "show", "drama") else "movie"
+        path = f"/{media}/{ids['tmdb']}"
+    elif ids.get("imdb"):
+        # No tmdb id at all — TMDB can resolve an imdb tt id to its own.
+        resolved = resolve_via_imdb(str(ids["imdb"]), key)
+        if not resolved:
+            return {}
+        path, media = resolved
     else:
         return {}
 
@@ -295,11 +331,13 @@ def ensure_assets(card: dict, meta: dict, key: str, no_network: bool) -> None:
     ids = card["external_ids"]
     img_url, img_headers = "", {}
 
-    if key and (ids.get("tmdb_movie") or ids.get("tmdb_tv")):
-        d = tmdb_detail(ids, key)
+    if key and any(ids.get(k) for k in
+                   ("tmdb_movie", "tmdb_tv", "tmdb", "imdb")):
+        d = tmdb_detail(ids, key, card["kind"])
         if d and not id_matches(d, card["title"], card["original_title"],
                                 card["year"]):
-            bad = ids.get("tmdb_movie") or ids.get("tmdb_tv")
+            bad = (ids.get("tmdb_movie") or ids.get("tmdb_tv")
+                   or ids.get("tmdb") or ids.get("imdb"))
             got = " / ".join(sorted(d.get("names") or [])) or "(no title)"
             card["id_warning"] = entry["id_warning"] = (
                 f"TMDB id {bad} 指向的是《{got}》"
@@ -372,6 +410,13 @@ def shape_line(card: dict) -> str:
 
 def esc(t) -> str:
     return html.escape(str(t or ""))
+
+
+def pretty(stamp: str) -> str:
+    try:
+        return datetime.fromisoformat(stamp).strftime("%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return stamp or ""
 
 
 def render_card(card: dict, dimmed: bool = False) -> str:
@@ -509,6 +554,11 @@ h2{font-size:20px;margin:0 0 4px;line-height:1.35}
 .recid{margin-left:auto;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
 .section{margin:38px 0 16px;font-size:13px;color:var(--dim);
  text-transform:uppercase;letter-spacing:.08em}
+.ask-group{margin:34px 0 16px;padding:14px 18px;border-radius:10px;
+ background:var(--card);border:1px solid var(--line)}
+.ask-head{margin:0 0 6px;font-size:11px;color:var(--dim);letter-spacing:.08em;
+ text-transform:uppercase}
+.ask-text{margin:0;font-size:13.5px;color:var(--dim);white-space:pre-wrap}
 #bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);
  border-top:1px solid var(--line);padding:12px 20px;display:none;
  align-items:center;gap:14px;justify-content:center;font-size:13px}
@@ -561,18 +611,42 @@ def render_page(cards: list[dict], alsoran: list[dict], killed: list[dict],
         body += ('<p class="section">没通过评审</p>'
                  + "".join(render_card(c, dimmed=True) for c in killed))
     n = len(cards)
-    return f'''<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>推荐 · {esc(when[:10])}</title>
-<style>{CSS}</style></head>
-<body><div class="wrap">
-<header>
+    return page_shell(f"推荐 · {when[:10]}", f'''<header>
   <h1>给你的 {n} 个推荐</h1>
   <p class="ask">{esc(intention)}</p>
   <p class="when">{esc(when)}</p>
 </header>
-{body}
+{body}''')
+
+
+def render_pending_page(groups: list[tuple[str, str, list[dict]]],
+                        total: int) -> str:
+    """Every un-verdicted prediction, grouped by the ask that produced it.
+
+    Each group keeps its own ask visible, because a verdict only means
+    something against the question that was asked — "Rear Window, 4.5★"
+    is a different claim under 下饭剧 than under 最近的好看的电影."""
+    body = ""
+    for intention, when, cards in groups:
+        body += (f'<div class="ask-group"><p class="ask-head">{esc(when)}</p>'
+                 f'<p class="ask-text">{esc(intention)}</p></div>'
+                 + "".join(render_card(c) for c in cards))
+    return page_shell("待反馈的推荐", f'''<header>
+  <h1>{total} 个待反馈的推荐</h1>
+  <p class="ask">这些预测都已封存，等你的反应才能被打分。选一个反应，
+底部会拼好命令。没看过也没兴趣的，选「不看」同样是有效信号。</p>
+</header>
+{body}''')
+
+
+def page_shell(title: str, inner: str) -> str:
+    return f'''<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{esc(title)}</title>
+<style>{CSS}</style></head>
+<body><div class="wrap">
+{inner}
 </div>
 <div id="bar"><code id="cmd"></code><button id="copy">复制记录命令</button></div>
 <script>{JS}</script>
@@ -586,6 +660,9 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", required=True)
     ap.add_argument("--ids", default="")
+    ap.add_argument("--pending", action="store_true",
+                    help="render every prediction still awaiting a verdict, "
+                         "across all asks — the view the verdict loop needs")
     ap.add_argument("--include-killed", action="store_true")
     ap.add_argument("--out", default="")
     ap.add_argument("--no-network", action="store_true")
@@ -594,7 +671,7 @@ def main() -> None:
 
     ids = [int(x) for x in args.ids.replace(" ", "").split(",") if x] or None
     con = connect(args.db)
-    rows = fetch_rows(con, ids, args.include_killed)
+    rows = fetch_rows(con, ids, args.include_killed, pending=args.pending)
     con.close()
     if not rows:
         sys.exit("no recommendations rows matched — nothing to render")
@@ -620,23 +697,35 @@ def main() -> None:
     dead = [c for c in cards if c["killed"]]
 
     intention = cards[0]["intention"]
-    raw_when = cards[0]["session_date"]
-    try:
-        when = datetime.fromisoformat(raw_when).strftime("%Y-%m-%d %H:%M")
-    except ValueError:
-        when = raw_when
+    when = pretty(cards[0]["session_date"])
 
     out = Path(args.out) if args.out else (
         OUT_DIR / f"rec-{datetime.now():%Y%m%d-%H%M%S}.html")
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_page(live, alsoran, dead, intention, when), "utf-8")
+
+    if args.pending:
+        groups: list[tuple[str, str, list[dict]]] = []
+        for c in cards:
+            stamp = pretty(c["session_date"])
+            if groups and groups[-1][0] == c["intention"]:
+                groups[-1][2].append(c)
+            else:
+                groups.append((c["intention"], stamp, [c]))
+        for _, _, gc in groups:
+            gc.sort(key=lambda c: (c["rank"] is None, c["rank"] or 0, c["id"]))
+        html_out = render_pending_page(groups, len(cards))
+    else:
+        html_out = render_page(live, alsoran, dead, intention, when)
+    out.write_text(html_out, "utf-8")
 
     covered = sum(1 for c in cards if c.get("poster_file"))
     print(json.dumps({
         "out": str(out),
-        "cards": len(live),
-        "also_survived": len(alsoran),
-        "killed_shown": len(dead),
+        "mode": "pending" if args.pending else "slate",
+        "cards": len(cards) if args.pending else len(live),
+        "asks": len(groups) if args.pending else 1,
+        "also_survived": 0 if args.pending else len(alsoran),
+        "killed_shown": 0 if args.pending else len(dead),
         "id_warnings": [f'#{c["id"]} {c["title"]}' for c in cards
                         if c.get("id_warning")],
         "covers": f"{covered}/{len(cards)}",
