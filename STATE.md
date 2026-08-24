@@ -5,7 +5,14 @@
 > douban-export/RUNBOOK.md. Machine-local agent memory does NOT sync across
 > computers — this file is the cross-machine handoff.
 
-**Last updated:** 2026-08-23 (session: pitch page + id-fabrication fix — `recommend/render.py` added, the system's user-facing surface: it turns logged `recommendations` rows into one self-contained HTML card page (cover, synopsis, the scout's case as the reason, predicted stars + percentile, verdict buttons that copy the `reclog.py verdict` command). Read-only view, safe to run against a busy DB. Wired into SKILL.md as step 5b. Building it surfaced a real defect — see "Recommend system — fabricated tmdb ids" below. Prior same day: recommend log — a completed
+**Last updated:** 2026-08-23 (session: Douban harvest completed — the
+`harvest_douban.py` checkpoint went from 69/298 to 298/298 anchors, all
+`status: fetched`, no blocks or circuit-breaker trips across 5 sequential
+`fetch` invocations; the whole raw corpus was then re-transformed under
+the new genre-tag extraction and upserted, taking the pool's `douban_rec`
+channel from 984 to 3,160 rows (3,150 of them, 99.7%, now carry tags); see
+"Recommend system — Douban harvest completed" below. Prior same day:
+pitch page + id-fabrication fix — `recommend/render.py` added, the system's user-facing surface: it turns logged `recommendations` rows into one self-contained HTML card page (cover, synopsis, the scout's case as the reason, predicted stars + percentile, verdict buttons that copy the `reclog.py verdict` command). Read-only view, safe to run against a busy DB. Wired into SKILL.md as step 5b. Building it surfaced a real defect — see "Recommend system — fabricated tmdb ids" below. Prior same day: recommend log — a completed
 recommendation run logged, 6 new candidates, 4 pitched/selected, 1
 survived-not-selected, 1 killed; see "Recommend system — run logged
 (下饭剧 + 高密度电影 ask)" below. Prior same day: shells season/parent
@@ -45,7 +52,58 @@ that: 2026-08-01 monthly scheduled pipeline — Douban refresh #3, Plex
 sync, enrich, resolve, Ryot delta; clean run)
 
 
-## Recommend system — pitch page + fabricated tmdb ids (2026-08-23, latest)
+## Recommend system — Douban harvest completed (2026-08-23, latest)
+
+Finished the Douban side of the v2 candidate-pool harvest — the checkpoint
+had been sitting at 69/298 anchors (all `film`-kind remaining). Read-first
+per the brief: `harvest_douban.py` (+ `--help`), `pool.py --help`,
+`recommend/README.md`'s write ritual.
+
+**Task A — harvest.** `anchors --db media.db` -> 298 total (162 tv, 136
+film). `fetch` run resumed from the existing checkpoint across **5
+sequential invocations** (`uv run recommend/harvest_douban.py fetch
+--anchors <scratchpad anchors.json> --raw-dir recommend/raw/douban/2026-08-23/
+--checkpoint recommend/raw/douban/checkpoint.json --budget 45`, last one
+`--budget 49` to finish the tail), each kept under the harness's shell
+timeout by the 45-anchor budget (~45 × up-to-10s jittered delay stays
+under 600s). Final checkpoint: **298/298, every entry `status: "fetched"`
+— no 403/302 block, no 8-consecutive circuit-breaker trip.** Politeness
+(5–10s jittered delay, no rate increase, no retry-into-block) held
+throughout.
+
+**Task B — genre tags, whole corpus.** Re-`transform`ed all 298 dated raw
+files in `recommend/raw/douban/2026-08-23/` (the pre-existing 69 plus the
+229 just fetched) under the just-landed `card_subtitle` genre extraction:
+`{"raw_pages": 298, "blocked": 0, "skipped": 0, "entries": 5960}`, 5,933
+of those 5,960 batch entries (99.5%) carrying a non-empty `tags` list.
+`pool.py upsert`: **2,176 inserted, 3,784 merged** (2,176 matches the
+pool's total delta exactly, confirming no double-counting).
+
+**Write ritual:** `lsof media.db*` clean (no other writer) — STATE.md
+lane check clean (Douban harvest is exactly this session's own lane, no
+conflict) — `PRAGMA wal_checkpoint(TRUNCATE)` — backup
+`backups/media-recommend-20260823-201619.db`. Only `candidate_pool`
+touched: works/records/external_ids confirmed **unchanged at
+4,359/5,539/11,272**, both before and after.
+
+**Pool stats before:** `{"total": 4297, "by_kind": {"film": 3112, "tv":
+1185}, "evidence_cached": 7, "suppressed": 411, "by_channel":
+{"tmdb_discover_recent": 50, "tmdb_rec": 3265, "douban_rec": 984}}`.
+**After `upsert` + `suppress-sync`** (608 newly suppressed, all reason
+`watched`, 0 `rejected`): `{"total": 6473, "by_kind": {"film": 4788, "tv":
+1685}, "evidence_cached": 7, "suppressed": 1019, "by_channel":
+{"tmdb_discover_recent": 50, "tmdb_rec": 3265, "douban_rec": 3160}}`. Of
+the pool's 3,160 `douban_rec` rows, **3,150 (99.7%) now carry at least one
+tag** (up from 0 tag-carrying `douban_rec` rows before this session — the
+extraction is new). Douban's half of the pool is now tag-filterable via
+`pool.py query --tag`/`--channel douban_rec` for both the pre-existing
+and newly-harvested anchors alike.
+
+Full report:
+`/private/tmp/claude-501/-Users-anping-Documents-Stuff-AI-Space-media-hub/009324b1-0160-40fe-ab60-bff5f78ff9bb/scratchpad/sdd/v2-pool/douban-complete-report.md`.
+
+
+## Recommend system — pitch page + fabricated tmdb ids (2026-08-23)
 
 **New:** `recommend/render.py` — the only user-facing surface. `python3
 recommend/render.py --db media.db --ids <ids> --open` renders the logged
