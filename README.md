@@ -12,17 +12,19 @@ the source of truth. **The database is not in this repo** (see
 ## Start with only your chat history
 
 This repository is designed to live inside Codex or Claude Code. Give your
-coding agent the GitHub URL and say:
+coding agent the GitHub URL and say only:
 
-> Clone this repository, read `skills/media-taste/SKILL.md`, and set it up for
-> me. You may read my local Codex/Claude conversations, but ask me first what I
-> want excluded. Then recommend something.
+> https://github.com/emrickk/LLM-movie-recommendation install and recommend
 
-The agent reads the permitted conversations, separates what you explicitly
-expressed from what it only infers, initializes a local database, runs the
-scout and blind rejecting critic, and aims for an HTML page with 8–10 rich
-cards (fewer when the critic finds that the evidence does not support them).
-Nothing personal is committed back to GitHub.
+Codex discovers `AGENTS.md`; Claude Code discovers `CLAUDE.md`. Those entry
+points tell the agent to continue through the whole workflow without requiring
+the user to know the repository structure, skill name, or slash command. The
+agent may ask one short privacy question before reading conversations beyond
+the current chat. It then separates what the user explicitly expressed from
+what it only infers, initializes a local database, runs the scout and blind
+rejecting critic, and produces an HTML page with 8–10 rich cards (fewer when
+the evidence does not support them). Nothing personal is committed back to
+GitHub.
 
 The page accepts **Start now**, **Bookmark**, **Wrong title**, **Right title,
 weak pitch**, or **Already seen**, plus written feedback. Copy the result back
@@ -131,7 +133,7 @@ There is no git history before this commit, so
 way they are. Read it before overriding anything.
 
 ```bash
-python3 -m pytest recommend/tests/ -q      # 146 tests
+python3 -m pytest recommend/tests/ -q      # 163 tests
 ```
 
 ---
