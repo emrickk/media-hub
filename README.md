@@ -16,6 +16,10 @@ coding agent the GitHub URL and say only:
 
 > https://github.com/emrickk/LLM-movie-recommendation install and recommend
 
+**Agent:** after cloning, enter the repository and read `AGENTS.md`, then
+follow it immediately. Do not stop at installation; continue until the user
+can view the finished recommendation page.
+
 Codex discovers `AGENTS.md`; Claude Code discovers `CLAUDE.md`. Those entry
 points tell the agent to continue through the whole workflow without requiring
 the user to know the repository structure, skill name, or slash command. The

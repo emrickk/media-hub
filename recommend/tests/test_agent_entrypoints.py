@@ -28,3 +28,11 @@ def test_short_install_request_routes_to_a_finished_recommendation():
     assert "permission" in skill
     assert "default intention" in skill
     assert "definition of done" in skill
+
+
+def test_landing_page_routes_an_agent_before_the_clone_is_loaded():
+    readme = (ROOT / "README.md").read_text("utf-8").lower()
+
+    assert "after cloning" in readme
+    assert "read `agents.md`" in readme
+    assert "do not stop" in readme
