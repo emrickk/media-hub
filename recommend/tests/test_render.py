@@ -236,7 +236,51 @@ def test_render_page_puts_unselected_survivors_below_the_picks(con):
     picks = [c for c in cards if c["selected"] is not False]
     alsoran = [c for c in cards if c["selected"] is False]
     page = render.render_page(picks, alsoran, [], "ask", "2026-08-23 19:00")
-    assert page.index("Picked") < page.index("也通过了") < page.index("Capped")
+    assert page.index("Picked") < page.index("Also passed review") < page.index("Capped")
+    assert 'class="slate-card slate-card--secondary"' in page
+
+
+def test_primary_card_uses_the_dark_editorial_redesign(con):
+    enrichment = {
+        "summary": "A direct, concrete premise.",
+        "special": "The formal device that makes it distinct.",
+        "personal_hook": "The exact part likely to pull this user in.",
+        "good_to_know": "One useful expectation before starting.",
+        "entry": {"applicable": True, "start_at": "Episode 1",
+                  "why": "The premise starts there.", "exit_test": "Try two."},
+        "inside": {"moments": ["A spoiler-light concrete moment."], "quotes": []},
+    }
+    make_row(con, 1, "Editorial Pick", rank=1, selected=True,
+             enrichment=enrichment, appetite="high")
+    card = render.card_of(con.execute("select * from recommendations").fetchone())
+    card.update({"overview": "", "id_warning": "", "poster_file": None,
+                 "vote": 8.3, "votes": 7312})
+
+    page = render.render_page([card], [], [], "something for tonight",
+                              "2026-08-24 19:30")
+
+    assert 'class="slate-card slate-card--primary"' in page
+    assert 'class="reason-grid"' in page
+    assert "What makes it special" in page
+    assert "Why I picked it for you" in page
+    assert "Critic notes" in page
+    assert 'data-status' in page
+    assert "No reaction" in page
+    assert "SLATE" in page and "SEALED 2026-08-24 19:30" in page
+    assert "fonts.googleapis.com" in page
+    assert "feedback-dock" in page
+
+
+def test_killed_cards_are_audit_rows_without_feedback(con):
+    make_row(con, 1, "Rejected", killed=1)
+    card = render.card_of(con.execute("select * from recommendations").fetchone())
+    card.update({"overview": "", "id_warning": "", "poster_file": None})
+
+    html = render.render_killed_card(card)
+
+    assert 'class="rejected-row"' in html
+    assert "Killed" in html
+    assert 'data-reaction=' not in html
 
 
 def test_page_feedback_packet_uses_differentiated_reactions(con):

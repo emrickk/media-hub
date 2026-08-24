@@ -69,7 +69,7 @@ def test_empty_store_to_rich_card_to_rejection_suppression(tmp_path):
     assert rendered.returncode == 0, rendered.stderr
     page = html.read_text("utf-8")
     assert "What makes it special" in page
-    assert "Right title, weak pitch" in page
+    assert "Weak pitch" in page
     assert "media-hub-feedback-v1" in page
 
     feedback_file = tmp_path / "feedback.json"

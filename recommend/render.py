@@ -396,7 +396,7 @@ def data_uri(path: Path | None) -> str:
 # html
 # --------------------------------------------------------------------------
 
-KIND_LABEL = {"film": "电影", "tv": "剧集", "show": "剧集", "drama": "剧集"}
+KIND_LABEL = {"film": "Film", "tv": "TV", "show": "TV", "drama": "TV"}
 
 
 def stars_html(stars) -> str:
@@ -405,21 +405,21 @@ def stars_html(stars) -> str:
     full = int(stars)
     half = (stars - full) >= 0.5
     glyphs = "★" * full + ("½" if half else "")
-    return (f'<span class="stars" title="predicted {stars}">{glyphs}'
-            f'<span class="starnum">{stars:g}</span></span>')
+    return f'<span class="stars" title="Predicted {stars:g} stars">{glyphs}</span>'
 
 
 def shape_line(card: dict) -> str:
     s = card.get("shape") or {}
     bits = []
     if s.get("seasons"):
-        bits.append(f"{s['seasons']} 季")
+        count = s["seasons"]
+        bits.append(f"{count} season{'s' if count != 1 else ''}")
     if s.get("episodes"):
-        bits.append(f"{s['episodes']} 集")
+        bits.append(f"{s['episodes']} episodes")
     if s.get("ep_runtime_min"):
-        bits.append(f"每集 {s['ep_runtime_min']} 分钟")
+        bits.append(f"{s['ep_runtime_min']}-min episodes")
     elif s.get("runtime_min"):
-        bits.append(f"{s['runtime_min']} 分钟")
+        bits.append(f"{s['runtime_min']} min")
     return " · ".join(bits)
 
 
@@ -434,38 +434,122 @@ def pretty(stamp: str) -> str:
         return stamp or ""
 
 
+def compact_number(value) -> str:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return ""
+    if number >= 1_000_000:
+        return f"{number / 1_000_000:.1f}m".replace(".0m", "m")
+    if number >= 1_000:
+        return f"{number / 1_000:.1f}k".replace(".0k", "k")
+    return f"{number:,}"
+
+
+def initials(title: str) -> str:
+    words = re.findall(r"[0-9A-Za-z]+", title or "")
+    if len(words) >= 2:
+        return (words[0][0] + words[1][0]).upper()
+    return (words[0][:2] if words else "?").upper()
+
+
+def tmdb_href(card: dict) -> str:
+    ids = card.get("external_ids") or {}
+    if ids.get("tmdb_movie"):
+        return f"https://www.themoviedb.org/movie/{esc(ids['tmdb_movie'])}"
+    if ids.get("tmdb_tv"):
+        return f"https://www.themoviedb.org/tv/{esc(ids['tmdb_tv'])}"
+    if ids.get("tmdb"):
+        media_type = "movie" if card.get("kind") == "film" else "tv"
+        return f"https://www.themoviedb.org/{media_type}/{esc(ids['tmdb'])}"
+    return ""
+
+
+def poster_html(card: dict, compact: bool = False) -> str:
+    poster = data_uri(card.get("poster_file"))
+    rank = (f'<span class="poster-rank">{esc(card["rank"])}</span>'
+            if card.get("rank") and not compact else "")
+    if poster:
+        art = (f'<img class="poster" src="{poster}" '
+               f'alt="Poster for {esc(card["title"])}">')
+    else:
+        art = (f'<div class="poster poster--empty" role="img" '
+               f'aria-label="No poster available for {esc(card["title"])}">'
+               f'<strong>{esc(initials(card["title"]))}</strong>'
+               f'<span>Cover unavailable</span></div>')
+    return f'<div class="poster-shell">{art}{rank}</div>'
+
+
+def source_rating_html(card: dict) -> str:
+    vote = card.get("vote")
+    href = tmdb_href(card)
+    if vote is None and not href:
+        return ""
+    label = "TMDB"
+    if vote is not None:
+        label += f" {vote:g}"
+        count = compact_number(card.get("votes"))
+        if count:
+            label += f" · {count}"
+    if href:
+        return (f'<a class="source-rating" href="{href}" target="_blank" '
+                f'rel="noreferrer">{esc(label)}</a>')
+    return f'<span class="source-rating">{esc(label)}</span>'
+
+
+def prediction_html(card: dict) -> str:
+    details = []
+    if card.get("stars") is not None:
+        details.append(f'{card["stars"]:g} predicted')
+    if card.get("confidence"):
+        details.append(f'{card["confidence"]} confidence')
+    if card.get("percentile") is not None:
+        cell = card.get("cell_label") or "comparable works you rate"
+        details.append(f'{card["percentile"]:g}th percentile of {cell}')
+    if card.get("appetite"):
+        details.append(f'{card["appetite"]} start appetite')
+    if not details and card.get("stars") is None:
+        details.append("Provisional cold-start judgment")
+    return (f'<div class="prediction">{stars_html(card.get("stars"))}'
+            f'<span>{esc(" · ".join(details))}</span></div>')
+
+
 def render_enrichment(card: dict) -> str:
     enrichment = card.get("enrichment") or {}
     if not enrichment:
         return ""
 
     parts = []
-    knowledge = enrichment.get("knowledge")
-    if knowledge == "thin":
-        parts.append('<p class="knowledge">Knowledge is thin — specifics are intentionally limited.</p>')
+    summary = enrichment.get("summary")
+    if summary:
+        parts.append(f'<p class="premise" aria-label="What it is">{esc(summary)}</p>')
 
-    for label, key, css in (
-            ("What it is", "summary", "summary"),
-            ("What makes it special", "special", "special"),
-            ("Why I picked it for you", "personal_hook", "personal"),
-            ("Good to know", "good_to_know", "good-to-know")):
-        value = enrichment.get(key)
-        if value:
-            parts.append(f'<section class="enrich enrich--{css}"><h3>{label}</h3>'
-                         f'<p>{esc(value)}</p></section>')
+    reason_columns = []
+    for label, key, css in (("What makes it special", "special", "special"),
+                            ("Why I picked it for you", "personal_hook", "personal")):
+        if enrichment.get(key):
+            reason_columns.append(
+                f'<section class="reason reason--{css}"><h3>{label}</h3>'
+                f'<p>{esc(enrichment[key])}</p></section>')
+    if reason_columns:
+        parts.append('<div class="reason-grid">' + "".join(reason_columns) + '</div>')
+
+    if enrichment.get("good_to_know"):
+        parts.append('<p class="entry-line"><span>Good to know</span>'
+                     f'{esc(enrichment["good_to_know"])}</p>')
 
     entry = enrichment.get("entry") or {}
     if entry.get("applicable") and any(entry.get(key) for key in
                                         ("start_at", "why", "exit_test")):
-        lines = []
+        line = []
         if entry.get("start_at"):
-            lines.append(f'<strong>{esc(entry["start_at"])}</strong>')
+            line.append(f'<strong>{esc(entry["start_at"])}</strong>')
         if entry.get("why"):
-            lines.append(esc(entry["why"]))
+            line.append(esc(entry["why"]))
         if entry.get("exit_test"):
-            lines.append(f'<span class="exit-test">Exit test: {esc(entry["exit_test"])}</span>')
-        parts.append('<section class="enrich enrich--entry"><h3>Where to start</h3>'
-                     + "".join(f"<p>{line}</p>" for line in lines) + "</section>")
+            line.append(f'Exit test: {esc(entry["exit_test"])}')
+        parts.append('<p class="entry-line"><span title="Where to start">Start</span>'
+                     + " — ".join(line) + "</p>")
 
     inside = enrichment.get("inside") or {}
     moments = [moment for moment in inside.get("moments", []) if moment]
@@ -477,8 +561,8 @@ def render_enrichment(card: dict) -> str:
             f'<blockquote>“{esc(quote["text"])}”'
             + (f'<cite>— {esc(quote.get("speaker"))}</cite>' if quote.get("speaker") else "")
             + "</blockquote>" for quote in quotes)
-        parts.append('<section class="enrich enrich--inside"><h3>Inside it</h3>'
-                     + (f"<ul>{items}</ul>" if items else "") + quote_html + "</section>")
+        parts.append('<details class="inside"><summary>Inside it</summary>'
+                     + (f"<ul>{items}</ul>" if items else "") + quote_html + "</details>")
 
     reception = enrichment.get("reception")
     if reception:
@@ -488,229 +572,241 @@ def render_enrichment(card: dict) -> str:
                      and rating.get("source") and rating.get("value")]
     if valid_ratings:
         parts.append('<p class="external-ratings">' + "".join(
-            f'<span class="chip">{esc(rating["source"])} {esc(rating["value"])}</span>'
+            f'<span>{esc(rating["source"])} {esc(rating["value"])}</span>'
             for rating in valid_ratings) + "</p>")
+    if enrichment.get("knowledge") == "thin":
+        parts.append('<p class="knowledge">Knowledge is thin — specifics are intentionally limited.</p>')
     return "".join(parts)
 
 
-def render_card(card: dict, dimmed: bool = False) -> str:
-    poster = data_uri(card.get("poster_file"))
-    poster_html = (f'<img class="poster" src="{poster}" alt="">' if poster
-                   else '<div class="poster poster--empty">无封面</div>')
+def critic_notes_html(card: dict) -> str:
+    items = []
+    if card.get("selection_reason"):
+        items.append(card["selection_reason"])
+    items.extend(list(card.get("evidence_chain") or [])[:3])
+    items.extend(f"Risk: {risk}" for risk in list(card.get("risks") or [])[:2])
+    if card.get("id_warning"):
+        items.append(f'Identity warning: {card["id_warning"]}')
+    if not items:
+        return ""
+    return ('<details class="critic-notes"><summary>Critic notes</summary><ul>'
+            + "".join(f'<li>{esc(item)}</li>' for item in items) + '</ul></details>')
 
-    meta_bits = [KIND_LABEL.get(card["kind"], card["kind"])]
+
+def feedback_html(card: dict, compact: bool = False) -> str:
+    labels = [("start", "▶ Start now"), ("bookmark", "＋ Bookmark"),
+              ("wrong_title", "× Wrong title")]
+    if not compact:
+        labels.append(("weak_pitch", "≈ Weak pitch"))
+    labels.append(("seen", "✓ Already seen"))
+    buttons = "".join(
+        f'<button class="reaction" data-reaction="{reaction}" data-id="{card["id"]}" '
+        f'title="{esc(label.lstrip("▶＋×≈✓ "))}">{label}</button>'
+        for reaction, label in labels)
+    note = "" if compact else (
+        f'<textarea class="feedback-note" data-note data-id="{card["id"]}" '
+        f'placeholder="What specifically attracted or lost you? (optional)"></textarea>')
+    return (f'<div class="feedback" data-card-id="{card["id"]}">{buttons}'
+            f'<span class="reaction-status" data-status>No reaction</span>{note}</div>')
+
+
+def render_card(card: dict, dimmed: bool = False) -> str:
+    compact = dimmed
+    meta_bits = []
     if card["year"]:
         meta_bits.append(str(card["year"]))
+    meta_bits.append(KIND_LABEL.get(card["kind"], card["kind"]))
     sl = shape_line(card)
     if sl:
         meta_bits.append(sl)
-
-    pct = card.get("percentile")
-    pct_html = ""
-    if pct is not None:
-        cell = esc(card.get("cell_label") or "同类作品")
-        pct_html = (f'<span class="chip" title="在「{cell}」里的位置">'
-                    f'{pct:g} 分位</span>')
-    conf = (f'<span class="chip chip--{esc(card["confidence"])}">'
-            f'把握 {esc(card["confidence"])}</span>' if card["confidence"] else "")
-    appetite = card.get("appetite")
-    appetite_html = (f'<span class="chip appetite appetite--{esc(appetite)}">'
-                     f'Appetite {esc(appetite)}</span>' if appetite else "")
-
-    # External aggregate, shown rather than left to be guessed from the art.
-    vote = card.get("vote")
-    vote_html = ""
-    if vote:
-        votes = card.get("votes") or 0
-        tier = "hi" if vote >= 7.5 else ("mid" if vote >= 6.5 else "lo")
-        count = f"（{votes:,} 人）" if votes else ""
-        vote_html = (f'<span class="vote vote--{tier}" '
-                     f'title="TMDB 平均分{count}">TMDB {vote:g}</span>')
-
-    # The case is the persuasive argument for watching it; the critic's
-    # selection_reason is bookkeeping about the slate. Lead with the case.
-    why = card["case"] or card["ask_fit"] or card["selection_reason"]
-    # Rich cards carry their persuasive argument in `personal_hook`; keep the
-    # legacy case only when enrichment is absent so the user is not shown two
-    # paragraphs making the same claim in different language.
-    why_html = (f'<p class="why">{esc(why)}</p>'
-                if why and not card.get("enrichment") else "")
-    enrichment_html = render_enrichment(card)
-
-    detail_items = []
-    if card["selection_reason"] and card["selection_reason"] != why:
-        detail_items.append(("为什么排在这个位置", [card["selection_reason"]]))
-    if card["evidence_chain"]:
-        detail_items.append(("依据", list(card["evidence_chain"])[:4]))
-    if card["risks"]:
-        detail_items.append(("需要注意", list(card["risks"])[:3]))
-    blocks = "".join(
-        f'<p class="dt">{esc(head)}</p><ul>'
-        + "".join(f"<li>{esc(i)}</li>" for i in items) + "</ul>"
-        for head, items in detail_items)
-    risks_html = (f'<details class="risks"><summary>评审细节</summary>{blocks}'
-                  f'</details>' if blocks else "")
-
-    kill_html = (f'<p class="kill">未通过：{esc(card["kill_reason"])}</p>'
-                 if card["killed"] and card["kill_reason"] else "")
-
-    warn_html = (f'<p class="warn">⚠ {esc(card.get("id_warning"))}</p>'
-                 if card.get("id_warning") else "")
-
     orig = card["original_title"]
     orig_html = (f'<span class="orig">{esc(orig)}</span>'
                  if orig and orig != card["title"] else "")
-
+    enrichment = card.get("enrichment") or {}
     overview = card.get("overview") or ""
-    overview_html = f'<p class="overview">{esc(overview)}</p>' if overview else ""
+    fallback = overview or card.get("case") or card.get("ask_fit") or ""
 
-    rank = f'<span class="rank">{card["rank"]}</span>' if card.get("rank") else ""
-    verdict_html = ""
-    if not card["killed"]:
-        labels = (
-            ("start", "▶ Start now"), ("bookmark", "＋ Bookmark"),
-            ("wrong_title", "× Wrong title"),
-            ("weak_pitch", "≈ Right title, weak pitch"),
-            ("seen", "✓ Already seen"),
-        )
-        buttons = "".join(
-            f'<button class="v" data-reaction="{reaction}" '
-            f'data-id="{card["id"]}">{label}</button>'
-            for reaction, label in labels)
-        verdict_html = (
-            f'<div class="verdict" data-card-id="{card["id"]}">{buttons}'
-            f'<span class="recid">#{card["id"]}</span>'
-            f'<textarea class="feedback-note" data-id="{card["id"]}" '
-            f'placeholder="What specifically attracted or lost you? (optional)"></textarea>'
-            f'</div>')
+    if compact:
+        summary = enrichment.get("summary") or fallback
+        held_back = card.get("selection_reason") or card.get("appetite_case") or "Passed review; held outside this slate's pitch cap."
+        return f'''<article class="slate-card slate-card--secondary" data-card="{card["id"]}" data-title="{esc(card["title"])}">
+  {poster_html(card, compact=True)}
+  <div class="card-body">
+    <div class="title-row"><div><h2>{esc(card["title"])}{orig_html}</h2>
+      <p class="meta">{esc(" · ".join(meta_bits))}{f' · {card["stars"]:g} predicted' if card.get("stars") is not None else ''}</p></div>
+      {source_rating_html(card)}</div>
+    {f'<p class="secondary-copy">{esc(summary)}</p>' if summary else ''}
+    <p class="held-back">{esc(held_back)}</p>
+    {feedback_html(card, compact=True)}
+  </div>
+</article>'''
 
-    return f'''<article class="card{' card--dim' if dimmed else ''}">
-  {poster_html}
-  <div class="body">
-    <h2>{rank}{esc(card["title"])}{orig_html}</h2>
-    <p class="meta">{esc(" · ".join(meta_bits))}</p>
-    <p class="pred">{stars_html(card["stars"])}{vote_html}{pct_html}{conf}{appetite_html}</p>
-    {overview_html}
-    {why_html}
-    {enrichment_html}
-    {kill_html}
-    {warn_html}
-    {risks_html}
-    {verdict_html}
+    legacy = ""
+    if not enrichment:
+        if fallback:
+            legacy += f'<p class="premise" aria-label="What it is">{esc(fallback)}</p>'
+        legacy_hook = card.get("case") or card.get("ask_fit") or ""
+        if legacy_hook and legacy_hook != fallback:
+            legacy += ('<div class="reason-grid reason-grid--single">'
+                       '<section class="reason reason--personal">'
+                       '<h3>Why I picked it for you</h3>'
+                       f'<p>{esc(legacy_hook)}</p></section></div>')
+    return f'''<article class="slate-card slate-card--primary" data-card="{card["id"]}" data-title="{esc(card["title"])}">
+  {poster_html(card)}
+  <div class="card-body">
+    <div class="title-row"><div><h2>{esc(card["title"])}{orig_html}</h2>
+      <p class="meta">{esc(" · ".join(meta_bits))}</p></div>
+      {source_rating_html(card)}</div>
+    {prediction_html(card)}
+    {legacy}{render_enrichment(card)}
+    {critic_notes_html(card)}
+    {feedback_html(card)}
   </div>
 </article>'''
 
 
+def render_killed_card(card: dict) -> str:
+    meta = " · ".join(str(x) for x in (card.get("year"), KIND_LABEL.get(card.get("kind"), card.get("kind"))) if x)
+    reason = card.get("kill_reason") or card.get("selection_reason") or "The critic found insufficient support."
+    return f'''<article class="rejected-row">
+  <div class="rejected-head"><h2>{esc(card["title"])}</h2><span>{esc(meta)}</span></div>
+  <span class="killed">Killed</span>
+  <p>{esc(reason)}</p>
+</article>'''
+
+
 CSS = """
-:root{--bg:#faf9f7;--fg:#1b1a18;--dim:#6b6660;--line:#e4e0da;--card:#fff;
- --accent:#8a5a2b;--shadow:0 1px 3px rgba(0,0,0,.07),0 8px 24px rgba(0,0,0,.05)}
-@media (prefers-color-scheme:dark){:root{--bg:#141312;--fg:#eceae6;--dim:#9a938a;
- --line:#2c2a27;--card:#1d1c1a;--accent:#d9a86c;
- --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3)}}
+:root{--bg:#14181d;--panel:#1b2026;--text:#dfe5ec;--bright:#fff;
+ --muted:#99a4b0;--quiet:#7f8a96;--faint:#5f6a76;--line:rgba(255,255,255,.08);
+ --line-strong:rgba(255,255,255,.18);--accent:#3ecf7a;--accent-dark:#10151a;
+ --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);
- font:16px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;
- padding:40px 20px 80px}
-.wrap{max-width:860px;margin:0 auto}
-header{margin-bottom:36px;border-bottom:1px solid var(--line);padding-bottom:22px}
-header h1{font-size:19px;margin:0 0 10px;letter-spacing:.02em}
-header .ask{color:var(--dim);font-size:14px;white-space:pre-wrap;margin:0}
-header .when{color:var(--dim);font-size:12px;margin-top:10px}
-.card{display:flex;gap:22px;background:var(--card);border:1px solid var(--line);
- border-radius:14px;padding:22px;margin-bottom:22px;box-shadow:var(--shadow)}
-.card--dim{opacity:.55}
-.poster{width:132px;min-width:132px;height:198px;object-fit:cover;border-radius:8px;
- background:var(--line)}
-.poster--empty{display:flex;align-items:center;justify-content:center;
- color:var(--dim);font-size:12px}
-.body{flex:1;min-width:0}
-h2{font-size:20px;margin:0 0 4px;line-height:1.35}
-.rank{display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;
- border-radius:50%;background:var(--accent);color:#fff;font-size:12px;
- margin-right:9px;vertical-align:2px}
-.orig{color:var(--dim);font-weight:400;font-size:14px;margin-left:9px}
-.meta{color:var(--dim);font-size:13px;margin:0 0 10px}
-.pred{margin:0 0 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.stars{color:var(--accent);font-size:15px;letter-spacing:1px}
-.starnum{color:var(--dim);font-size:12px;margin-left:6px;letter-spacing:0}
-.vote{font-size:11.5px;border-radius:99px;padding:2px 9px;font-weight:600;
- letter-spacing:.02em}
-.vote--hi{background:rgba(46,125,50,.13);color:#2e7d32}
-.vote--mid{background:rgba(150,120,20,.13);color:#8a6d1f}
-.vote--lo{background:rgba(150,60,40,.13);color:#a04a2c}
-@media (prefers-color-scheme:dark){.vote--hi{color:#7fc98a}
- .vote--mid{color:#d9bd6c}.vote--lo{color:#e0917a}}
-.chip{font-size:11px;color:var(--dim);border:1px solid var(--line);
- border-radius:99px;padding:2px 9px}
-.overview{margin:0 0 12px;font-size:14px;color:var(--dim)}
-.why{margin:0 0 12px;font-size:14.5px;border-left:2px solid var(--accent);
- padding-left:14px}
-.knowledge{font-size:12px;color:var(--dim);margin:0 0 12px}
-.enrich{margin:15px 0}
-.enrich h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;
- color:var(--dim);margin:0 0 4px}
-.enrich p{font-size:14px;margin:0}
-.enrich--personal{border-left:2px solid var(--accent);padding-left:14px}
-.enrich--entry{background:var(--bg);border-radius:9px;padding:12px 14px}
-.enrich--entry p{margin:2px 0}.exit-test{color:var(--dim);font-size:12.5px}
-.enrich--inside ul{margin:5px 0 8px;padding-left:20px;font-size:13.5px}
-.enrich blockquote{margin:8px 0;padding-left:12px;border-left:1px solid var(--line);
- font-size:13.5px;color:var(--dim)}
-.enrich cite{display:block;font-size:11px;font-style:normal;margin-top:2px}
-.reception{font-size:12.5px;color:var(--dim);margin:12px 0 6px}
-.external-ratings{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
-.kill{margin:0 0 10px;font-size:13px;color:var(--dim)}
-.warn{margin:0 0 10px;font-size:12.5px;color:#b4451f;background:rgba(180,69,31,.08);
- border-radius:7px;padding:8px 11px}
-@media (prefers-color-scheme:dark){.warn{color:#f0906a;background:rgba(240,144,106,.1)}}
-.risks{font-size:13px;color:var(--dim)}
-.risks summary{cursor:pointer;user-select:none}
-.risks ul{margin:6px 0 12px;padding-left:18px}
-.risks li{margin-bottom:5px}
-.dt{margin:12px 0 0;font-weight:600;color:var(--fg);opacity:.75;font-size:12.5px}
-.verdict{margin-top:16px;display:flex;gap:7px;align-items:center;flex-wrap:wrap}
-.v{font:inherit;font-size:12.5px;padding:4px 12px;border-radius:99px;cursor:pointer;
- border:1px solid var(--line);background:transparent;color:var(--dim)}
-.v:hover{border-color:var(--accent);color:var(--accent)}
-.v.on{background:var(--accent);border-color:var(--accent);color:#fff}
-.feedback-note{width:100%;min-height:58px;margin-top:5px;padding:9px 11px;
- border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--fg);
- font:inherit;font-size:12.5px;resize:vertical}
-.recid{margin-left:auto;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
-.section{margin:38px 0 16px;font-size:13px;color:var(--dim);
- text-transform:uppercase;letter-spacing:.08em}
-.ask-group{margin:34px 0 16px;padding:14px 18px;border-radius:10px;
- background:var(--card);border:1px solid var(--line)}
-.ask-head{margin:0 0 6px;font-size:11px;color:var(--dim);letter-spacing:.08em;
- text-transform:uppercase}
-.ask-text{margin:0;font-size:13.5px;color:var(--dim);white-space:pre-wrap}
-#bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);
- border-top:1px solid var(--line);padding:12px 20px;display:none;
- align-items:center;gap:14px;justify-content:center;font-size:13px}
-#bar span{font-size:12px;color:var(--dim)}
-#overall{font:inherit;font-size:12px;min-width:220px;max-width:34vw;padding:6px 9px;
- border:1px solid var(--line);border-radius:7px;background:transparent;color:var(--fg)}
-#bar button{font:inherit;font-size:12.5px;padding:5px 14px;border-radius:99px;
- border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
-@media (max-width:620px){.card{flex-direction:column}
- .poster{width:100%;min-width:0;height:auto;aspect-ratio:2/3;max-width:200px}}
+html{scroll-behavior:smooth;background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Archivo','Helvetica Neue',sans-serif;
+ font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;padding-bottom:72px}
+button,input,textarea{font:inherit}button{touch-action:manipulation}
+a{color:inherit}.wrap{max-width:1020px;margin:0 auto;padding:40px 44px 0}
+.slate-header{animation:rise .5s ease both}.mast{display:flex;justify-content:space-between;
+ align-items:baseline;gap:24px}.brand{display:flex;align-items:center;gap:8px;font-size:13px;
+ font-weight:700;letter-spacing:.04em;color:#eef2f6}.brand-dot{width:8px;height:8px;
+ border-radius:50%;background:var(--accent);box-shadow:0 0 18px rgba(62,207,122,.4)}
+.sealed{font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--faint);
+ text-transform:uppercase;font-variant-numeric:tabular-nums}.slate-header h1{margin:30px 0 10px;
+ color:var(--bright);font-size:32px;font-weight:800;line-height:1.05;letter-spacing:-.02em;
+ text-wrap:balance}.ask{max-width:650px;margin:0 0 28px;color:var(--muted);font-size:14px;
+ white-space:pre-wrap;text-wrap:pretty}.header-rule{height:1px;background:var(--line)}
+.slate-card{display:flex;border-bottom:1px solid var(--line);animation:rise .5s ease both}
+.slate-card--primary{gap:36px;padding:44px 0}.slate-card--secondary{gap:22px;padding:22px 0;opacity:.74}
+.poster-shell{position:relative;flex:none;width:200px;height:300px}.poster{display:block;width:100%;height:100%;
+ object-fit:cover;border-radius:5px;background:linear-gradient(170deg,#2a3b44,#171e26 70%);
+ box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 18px 40px -18px rgba(0,0,0,.8);
+ transition:transform .28s ease,box-shadow .28s ease}.poster-shell:hover .poster{transform:translateY(-5px);
+ box-shadow:inset 0 0 0 1px var(--accent),0 26px 50px -18px rgba(0,0,0,.9)}
+.poster--empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+ color:var(--faint)}.poster--empty strong{font-size:44px;color:rgba(255,255,255,.22);letter-spacing:-.02em}
+.poster--empty span{font:9px/1.5 var(--mono);letter-spacing:.08em;text-transform:uppercase}
+.poster-rank{position:absolute;top:10px;left:10px;padding:3px 7px;border-radius:4px;
+ background:rgba(0,0,0,.7);color:#fff;font:700 10.5px/1.4 var(--mono)}
+.slate-card--secondary .poster-shell{width:76px;height:114px}.slate-card--secondary .poster--empty strong{font-size:20px}
+.slate-card--secondary .poster--empty span{display:none}.card-body{flex:1;min-width:0}
+.title-row{display:flex;justify-content:space-between;align-items:baseline;gap:20px;flex-wrap:wrap}
+h2{margin:0;color:var(--bright);font-size:24px;font-weight:700;line-height:1.1;letter-spacing:-.012em}
+.slate-card--secondary h2,.rejected-row h2{font-size:16.5px}.orig{margin-left:10px;color:var(--quiet);
+ font-size:13px;font-weight:400}.meta{margin:5px 0 0;color:var(--quiet);font-size:13px}
+.source-rating{padding:4px 9px;border:1px solid rgba(255,255,255,.14);border-radius:4px;
+ color:var(--muted);font:10.5px/1.4 var(--mono);text-decoration:none;white-space:nowrap;
+ transition:border-color .22s ease,color .22s ease,transform .22s ease}.source-rating:hover{color:#fff;
+ border-color:rgba(255,255,255,.38);transform:translateY(-1px)}
+.prediction{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:9px}
+.prediction>span:last-child{color:var(--quiet);font-size:12.5px}.stars{color:var(--accent);
+ font-size:15px;letter-spacing:2px}.premise{max-width:650px;margin:16px 0 0;color:#e8edf2;
+ font-size:15.5px;font-weight:500;line-height:1.55;text-wrap:pretty}.reason-grid{display:grid;
+ grid-template-columns:1fr 1fr;gap:24px;max-width:820px;margin-top:16px}.reason h3{margin:0 0 5px;
+ color:var(--quiet);font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.reason--personal h3{color:var(--accent)}.reason p{margin:0;color:#aab4bf;font-size:13.5px;
+ line-height:1.6;text-wrap:pretty}.reason--personal p{color:#d8dee5}.reason-grid--single{
+ grid-template-columns:minmax(0,640px)}.reason-grid--single .reason p{display:-webkit-box;
+ -webkit-box-orient:vertical;-webkit-line-clamp:5;overflow:hidden}.entry-line{max-width:680px;
+ margin:13px 0 0;color:var(--quiet);font-size:12.5px}.entry-line>span{margin-right:8px;
+ color:var(--faint);font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.entry-line strong{color:#aab4bf}.inside,.critic-notes{max-width:680px;margin-top:11px;color:var(--muted);
+ font-size:12.5px}.inside summary,.critic-notes summary{color:var(--faint);font-size:10.5px;
+ font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;user-select:none}
+.inside ul,.critic-notes ul{display:flex;flex-direction:column;gap:4px;margin:8px 0 0;padding-left:18px}
+.inside blockquote{margin:8px 0 0;padding-left:12px;border-left:1px solid var(--line-strong)}
+.inside cite{display:block;color:var(--faint);font:10px var(--mono)}.reception,.knowledge{max-width:680px;
+ margin:9px 0 0;color:var(--faint);font-size:11.5px}.external-ratings{display:flex;gap:8px;
+ flex-wrap:wrap;margin:10px 0 0}.external-ratings span{color:var(--quiet);font:10px var(--mono)}
+.feedback{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:16px}.reaction{padding:7px 13px;
+ border:1px solid var(--line-strong);border-radius:5px;background:rgba(255,255,255,.04);
+ color:#cfd6dd;font-size:12.5px;font-weight:600;cursor:pointer;transition:border-color .2s ease,
+ color .2s ease,background .2s ease,transform .15s ease}.reaction:hover{border-color:rgba(255,255,255,.42);
+ color:#fff}.reaction[data-reaction=start]:hover,.reaction[data-reaction=bookmark]:hover{border-color:var(--accent)}
+.reaction:active{transform:scale(.98)}.reaction:focus-visible,.source-rating:focus-visible,input:focus-visible,
+textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.reaction.on{border-color:#3a4552;
+ background:#3a4552;color:#fff}.reaction.on[data-reaction=start],.reaction.on[data-reaction=bookmark]{
+ border-color:var(--accent);background:var(--accent);color:var(--accent-dark)}.reaction-status{margin-left:auto;
+ color:var(--faint);font:9.5px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.feedback-note{width:100%;min-height:42px;margin-top:2px;padding:9px 12px;border:1px solid rgba(255,255,255,.12);
+ border-radius:5px;background:rgba(255,255,255,.03);color:#eef2f6;font-size:12.5px;resize:vertical}
+.secondary-copy{max-width:680px;margin:6px 0 0;color:#aab4bf;font-size:12.5px}.held-back{max-width:680px;
+ margin:5px 0 0;color:var(--quiet);font-size:11.5px;font-style:italic;display:-webkit-box;
+ -webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}.slate-card--secondary .meta{font-size:12px}
+.slate-card--secondary .source-rating{padding:0;border:0}.slate-card--secondary .feedback{margin-top:10px}
+.slate-card--secondary .reaction{padding:5px 10px;font-size:11.5px}.slate-card--secondary .reaction-status{font-size:9px}
+.section-title{margin:36px 0 0;padding-bottom:10px;border-bottom:1px solid var(--line);
+ color:var(--faint);font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.rejected-row{position:relative;padding:20px 0;border-bottom:1px solid var(--line);opacity:.58}
+.rejected-head{display:flex;align-items:baseline;gap:9px}.rejected-head span{color:var(--quiet);font-size:12px}
+.killed{position:absolute;top:22px;right:0;color:#e0685a;font:9.5px var(--mono);letter-spacing:.1em;
+ text-transform:uppercase}.rejected-row p{max-width:680px;margin:7px 0 0;color:var(--muted);font-size:12.5px;
+ display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;overflow:hidden}
+.ask-group{margin:36px 0 0;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.ask-head{margin:0;color:var(--faint);font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.ask-text{max-width:650px;margin:6px 0 0;color:var(--muted);font-size:13px;white-space:pre-wrap}
+.slate-footer{display:flex;justify-content:space-between;gap:30px;padding:28px 0 100px;color:var(--faint);
+ font-size:11.5px}.feedback-dock{position:fixed;z-index:20;left:0;right:0;bottom:0;
+ border-top:1px solid rgba(255,255,255,.1);background:rgba(20,24,29,.92);backdrop-filter:blur(10px)}
+.dock-inner{display:flex;align-items:center;gap:14px;max-width:1020px;margin:0 auto;padding:11px 44px}
+#count{color:var(--quiet);font:10px var(--mono);letter-spacing:.08em;white-space:nowrap;text-transform:uppercase}
+#overall{flex:1;min-width:0;padding:8px 12px;border:1px solid rgba(255,255,255,.14);border-radius:5px;
+ background:rgba(255,255,255,.04);color:#eef2f6;font-size:12.5px}#copy{padding:8px 16px;border:1px solid var(--accent);
+ border-radius:5px;background:var(--accent);color:var(--accent-dark);font-size:12.5px;font-weight:700;
+ cursor:pointer;white-space:nowrap;transition:background .2s ease,transform .15s ease}#copy:hover{background:#5adb90}
+#copy:active{transform:scale(.98)}::placeholder{color:var(--faint)}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;
+ transition-duration:.01ms!important;scroll-behavior:auto!important}}
+@media(max-width:760px){.wrap{padding:28px 22px 0}.slate-card--primary{gap:22px}.poster-shell{width:150px;height:225px}
+ .reason-grid{grid-template-columns:1fr}.dock-inner{padding:10px 22px}.sealed{display:none}}
+@media(max-width:560px){body{padding-bottom:124px}.slate-header h1{font-size:28px}.slate-card--primary{flex-direction:column;
+ padding:34px 0}.poster-shell{width:min(200px,62vw);height:auto;aspect-ratio:2/3}.slate-card--secondary{align-items:flex-start}
+ .title-row{display:block}.source-rating{display:inline-block;margin-top:8px}.feedback{gap:6px}.reaction-status{width:100%;
+ margin:2px 0 0}.dock-inner{flex-wrap:wrap;gap:8px}#count{width:100%}#overall{min-width:180px}.slate-footer{display:block}
+ .slate-footer span{display:block;margin-bottom:8px}}
 """
 
 JS = """
 const storageKey = `media-hub-feedback:${document.title}`;
-const saved = JSON.parse(localStorage.getItem(storageKey) || '{"cards":{},"overall":""}');
+let saved;
+try { saved = JSON.parse(localStorage.getItem(storageKey) || '{"cards":{},"overall":""}'); }
+catch (_) { saved = {cards: {}, overall: ''}; }
 const cards = saved.cards || {};
 function persist() { saved.cards = cards; saved.overall = document.getElementById('overall').value;
   localStorage.setItem(storageKey, JSON.stringify(saved)); draw(); }
-document.querySelectorAll('.v').forEach(b => {
+const labels = {start:'Start now', bookmark:'Bookmark', wrong_title:'Wrong title',
+  weak_pitch:'Weak pitch', seen:'Already seen'};
+document.querySelectorAll('.reaction').forEach(b => {
   const id = b.dataset.id;
   if (cards[id]?.reaction === b.dataset.reaction) b.classList.add('on');
   b.onclick = () => {
     const current = cards[id] || {};
     current.reaction = current.reaction === b.dataset.reaction ? '' : b.dataset.reaction;
     cards[id] = current;
-    b.parentElement.querySelectorAll('.v').forEach(o =>
+    b.parentElement.querySelectorAll('.reaction').forEach(o =>
       o.classList.toggle('on', o.dataset.reaction === current.reaction));
+    const status = b.parentElement.querySelector('[data-status]');
+    if (status) status.textContent = current.reaction ? labels[current.reaction] : 'No reaction';
     persist();
   };
 });
@@ -729,13 +825,16 @@ function copyText() {
     `Record this packet with: python3 recommend/reclog.py --db media.db feedback --json <packet.json>`;
 }
 function draw() {
-  const bar = document.getElementById('bar');
   const count = Object.values(cards).filter(v => v.reaction || (v.note || '').trim()).length;
-  bar.style.display = count || document.getElementById('overall').value ? 'flex' : 'none';
-  document.getElementById('count').textContent = `${count} reaction${count === 1 ? '' : 's'}`;
+  document.getElementById('count').textContent = `${count} reaction${count === 1 ? '' : 's'}`.toUpperCase();
 }
 document.getElementById('overall').value = saved.overall || '';
 document.getElementById('overall').oninput = persist;
+document.querySelectorAll('[data-card]').forEach(card => {
+  const state = cards[card.dataset.card] || {};
+  const status = card.querySelector('[data-status]');
+  if (status) status.textContent = state.reaction ? labels[state.reaction] : 'No reaction';
+});
 document.getElementById('copy').onclick = async (e) => {
   try { await navigator.clipboard.writeText(copyText());
         e.target.textContent = 'Copied';
@@ -751,18 +850,24 @@ def render_page(cards: list[dict], alsoran: list[dict], killed: list[dict],
                 intention: str, when: str) -> str:
     body = "".join(render_card(c) for c in cards)
     if alsoran:
-        body += ('<p class="section">也通过了，这次没选上</p>'
+        body += ('<p class="section-title">Also passed review — not selected this time</p>'
                  + "".join(render_card(c, dimmed=True) for c in alsoran))
     if killed:
-        body += ('<p class="section">没通过评审</p>'
-                 + "".join(render_card(c, dimmed=True) for c in killed))
+        body += ('<p class="section-title">Rejected by the critic</p>'
+                 + "".join(render_killed_card(c) for c in killed))
     n = len(cards)
-    return page_shell(f"推荐 · {when[:10]}", f'''<header>
-  <h1>给你的 {n} 个推荐</h1>
-  <p class="ask">{esc(intention)}</p>
-  <p class="when">{esc(when)}</p>
+    slate = cards[0]["id"] if cards else "—"
+    noun = "pick" if n == 1 else "picks"
+    return page_shell(f"Recommendation slate · {when[:10]}", f'''<header class="slate-header">
+  <div class="mast"><div class="brand"><span class="brand-dot"></span>Media Hub</div>
+    <span class="sealed">SLATE {slate} · SEALED {esc(when)}</span></div>
+  <h1>{n} {noun} for tonight</h1>
+  <p class="ask">Your ask: “{esc(intention)}” Every pick survived a blind critic — react below and the next slate gets sharper.</p>
+  <div class="header-rule"></div>
 </header>
-{body}''')
+{body}
+<footer class="slate-footer"><span>Generated locally from your permitted history. Profiles, ratings, and covers never leave this machine.</span>
+<span>External scores may drift after this slate was sealed.</span></footer>''')
 
 
 def render_pending_page(groups: list[tuple[str, str, list[dict]]],
@@ -777,26 +882,33 @@ def render_pending_page(groups: list[tuple[str, str, list[dict]]],
         body += (f'<div class="ask-group"><p class="ask-head">{esc(when)}</p>'
                  f'<p class="ask-text">{esc(intention)}</p></div>'
                  + "".join(render_card(c) for c in cards))
-    return page_shell("待反馈的推荐", f'''<header>
-  <h1>{total} 个待反馈的推荐</h1>
-  <p class="ask">这些预测都已封存，等你的反应才能被打分。选一个反应，
-底部会拼好命令。没看过也没兴趣的，选「不看」同样是有效信号。</p>
+    return page_shell("Recommendations awaiting feedback", f'''<header class="slate-header">
+  <div class="mast"><div class="brand"><span class="brand-dot"></span>Media Hub</div>
+    <span class="sealed">Pending feedback</span></div>
+  <h1>{total} recommendation{'s' if total != 1 else ''} awaiting feedback</h1>
+  <p class="ask">These predictions are sealed. Your reactions are what make the next slate more accurate.</p>
+  <div class="header-rule"></div>
 </header>
 {body}''')
 
 
 def page_shell(title: str, inner: str) -> str:
     return f'''<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="A private, locally generated recommendation slate.">
 <title>{esc(title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet">
 <style>{CSS}</style></head>
 <body><div class="wrap">
 {inner}
 </div>
-<div id="bar"><span id="count"></span><input id="overall" type="text"
+<div class="feedback-dock"><div class="dock-inner"><span id="count">0 reactions</span>
+ <input id="overall" type="text" aria-label="Overall slate feedback"
  placeholder="Anything true across several recommendations?">
- <button id="copy">Copy feedback for Codex / Claude</button></div>
+ <button id="copy">Copy feedback for Codex / Claude</button></div></div>
 <script>{JS}</script>
 </body></html>'''
 
