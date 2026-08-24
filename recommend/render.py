@@ -265,6 +265,12 @@ def tmdb_detail(ids: dict, key: str, kind: str = "") -> dict:
         if not out.get("year"):
             released = data.get("release_date") or data.get("first_air_date") or ""
             out["year"] = int(released[:4]) if released[:4].isdigit() else None
+        # The external aggregate. Engine prior `external-rating-signal`:
+        # this user selects on visible quality signal and was previously
+        # inferring it from cover art because the page never showed it.
+        if not out.get("vote") and data.get("vote_average"):
+            out["vote"] = round(float(data["vote_average"]), 1)
+            out["votes"] = int(data.get("vote_count") or 0)
         if out.get("overview") and out.get("poster_path"):
             break
     return out
@@ -320,6 +326,8 @@ def ensure_assets(card: dict, meta: dict, key: str, no_network: bool) -> None:
     entry = meta.setdefault(ck, {})
     card["overview"] = entry.get("overview", "")
     card["id_warning"] = entry.get("id_warning", "")
+    card["vote"] = entry.get("vote")
+    card["votes"] = entry.get("votes", 0)
 
     cached = sorted(COVER_DIR.glob(f"{ck}.*")) if COVER_DIR.exists() else []
     if cached:
@@ -346,6 +354,9 @@ def ensure_assets(card: dict, meta: dict, key: str, no_network: bool) -> None:
             d = {}
         if d.get("overview") and not card["overview"]:
             card["overview"] = entry["overview"] = d["overview"]
+        if d.get("vote"):
+            card["vote"] = entry["vote"] = d["vote"]
+            card["votes"] = entry["votes"] = d.get("votes", 0)
         if d.get("poster_path") and not card.get("poster_file"):
             img_url = TMDB_IMG + d["poster_path"]
 
@@ -440,6 +451,16 @@ def render_card(card: dict, dimmed: bool = False) -> str:
     conf = (f'<span class="chip chip--{esc(card["confidence"])}">'
             f'把握 {esc(card["confidence"])}</span>' if card["confidence"] else "")
 
+    # External aggregate, shown rather than left to be guessed from the art.
+    vote = card.get("vote")
+    vote_html = ""
+    if vote:
+        votes = card.get("votes") or 0
+        tier = "hi" if vote >= 7.5 else ("mid" if vote >= 6.5 else "lo")
+        count = f"（{votes:,} 人）" if votes else ""
+        vote_html = (f'<span class="vote vote--{tier}" '
+                     f'title="TMDB 平均分{count}">TMDB {vote:g}</span>')
+
     # The case is the persuasive argument for watching it; the critic's
     # selection_reason is bookkeeping about the slate. Lead with the case.
     why = card["case"] or card["ask_fit"] or card["selection_reason"]
@@ -489,7 +510,7 @@ def render_card(card: dict, dimmed: bool = False) -> str:
   <div class="body">
     <h2>{rank}{esc(card["title"])}{orig_html}</h2>
     <p class="meta">{esc(" · ".join(meta_bits))}</p>
-    <p class="pred">{stars_html(card["stars"])}{pct_html}{conf}</p>
+    <p class="pred">{stars_html(card["stars"])}{vote_html}{pct_html}{conf}</p>
     {overview_html}
     {why_html}
     {kill_html}
@@ -532,6 +553,13 @@ h2{font-size:20px;margin:0 0 4px;line-height:1.35}
 .pred{margin:0 0 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .stars{color:var(--accent);font-size:15px;letter-spacing:1px}
 .starnum{color:var(--dim);font-size:12px;margin-left:6px;letter-spacing:0}
+.vote{font-size:11.5px;border-radius:99px;padding:2px 9px;font-weight:600;
+ letter-spacing:.02em}
+.vote--hi{background:rgba(46,125,50,.13);color:#2e7d32}
+.vote--mid{background:rgba(150,120,20,.13);color:#8a6d1f}
+.vote--lo{background:rgba(150,60,40,.13);color:#a04a2c}
+@media (prefers-color-scheme:dark){.vote--hi{color:#7fc98a}
+ .vote--mid{color:#d9bd6c}.vote--lo{color:#e0917a}}
 .chip{font-size:11px;color:var(--dim);border:1px solid var(--line);
  border-radius:99px;padding:2px 9px}
 .overview{margin:0 0 12px;font-size:14px;color:var(--dim)}

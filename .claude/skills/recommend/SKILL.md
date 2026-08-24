@@ -61,9 +61,25 @@ All commands assume cwd = the `media-hub` repo root.
    Keep its JSON — step 3 passes it to the critic verbatim. It is small
    (summary statistics, not per-work rows), so inlining it is safe and
    correct, unlike snap.json.
+   Then load the engine priors — the corrections learned from what past
+   pitches actually did when they reached the user:
+   `python3 recommend/calibrate.py --db media.db active`
+   Keep this block verbatim. It goes to **both** the scout (step 2) and
+   the critic (step 3). It is an engine-layer input, not a profile edit:
+   priors describe what this engine keeps getting wrong, never what the
+   user "is". Never quote a prior back at the user as a fact about their
+   taste, and never let one override direct evidence in a candidate's own
+   dossier — a prior is a standing correction, not a trump card.
+   If `active` prints "none recorded yet", proceed without it; that is a
+   valid state, not a missing input.
 2. **Scout**: run SCOUT.md §§1–6 in this session (interpret + clarify
    check → history → sweep → narrow → dossiers → handoff), following
    whichever of SCOUT.md's "Run modes" paths matches this run:
+   Pass the **engine priors block** from step 1 to the scout along with
+   the ask. `filter` priors cut candidates before they cost a dossier;
+   `risk_flag` and `rank_weight` priors shape shortlisting and must be
+   addressed in the dossier of any candidate they touch rather than left
+   for the critic to notice.
    - **Interactive**: pool query (SCOUT.md §3 tier 1, local — the only
      candidate source; the library/`shells` is never swept for
      candidates, per SCOUT.md §2/§3) → shortlist-with-bar (§4's
@@ -88,7 +104,8 @@ All commands assume cwd = the `media-hub` repo root.
    ONLY: the text of CRITIC.md, the profile document, the **contents of
    index.txt**, the **path** to snap.json (plus the `history.py lookup`
    usage CRITIC.md describes), the **distribution JSON** from step 1,
-   **one cell object per candidate**, dossiers.json, and one more
+   **one cell object per candidate**, dossiers.json, the **engine priors
+   block** from step 1, and one more
    required line: the **pitch target** (plus the pitch cap), stated
    explicitly and named as such (e.g. "Pitch target: <this run's pitch
    target, from README.md's bindings>. Pitch cap: <N, from README.md's
@@ -285,6 +302,30 @@ All commands assume cwd = the `media-hub` repo root.
    where `N` comes from the step-5 id list (or from `pending`) and `V` is
    one of `interested` / `no` / `meh` / `watched`.
    `interested` → offer (never auto-run) the wishlist add per README.
+
+6b. **Capture the prose feedback, not just the clicks.** When the user
+   says anything about *why* a pitch did or didn't land — "these look
+   low-rated", "I don't start old films", "that reads as horror" — that
+   sentence is the highest-value signal the system ever receives, and the
+   verdict column cannot hold it. Record it:
+   1. Before writing a prior, **test the claim against the data** where
+      the data can speak. Run `python3 recommend/calibrate.py --db
+      media.db check` and query the history. A stated reason and the
+      measured pattern are often different: age suppressed *appetite* in
+      the verdict log while the rated history showed the oldest decades
+      scoring highest, so the correct prior was about willingness to
+      start, not about taste. Write the prior the evidence supports and
+      say in `evidence` what would falsify it.
+   2. Build a batch JSON per `calibrate.py`'s docstring — the user's words
+      verbatim in `feedback_verbatim`, one entry per derived rule — and
+      `python3 recommend/calibrate.py --db media.db add --json <file>`
+      (a media.db write: run the write ritual first).
+   3. Reuse an existing `prior_key` when sharpening a rule; `add`
+      supersedes the old row rather than leaving two contradictory live
+      rules with the same name.
+   Confidence must be honest: a rule drawn from one session on a handful
+   of verdicts is `low`, whatever it feels like. Never write a prior that
+   is really a claim about the user's character, and never edit TASTE.md.
 7. **Report**: end with counts (gathered / cut1 / cut2 / dossiers /
    survivors / selected) + a machine-readable list of source
    skips/failures, and the funnel log path. If a verdict or later rating
