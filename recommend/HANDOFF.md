@@ -25,9 +25,11 @@ contract. A wording ambiguity in those files is a runtime bug and must be
 treated as harshly as a code defect. The Python files are only the
 deterministic I/O edges.
 
-**Status: v1 is BUILT, CALIBRATED, and has run for real twice. v2 (candidate
-pool + platform-CF harvesting) is BUILT AND BOOTSTRAPPED — 4,297 candidates in
-the pool. Only its final task remains, and it is user-gated (see §8).**
+**Status: COMPLETE and running.** v1 (judgment layer) built and calibrated;
+v2 (candidate pool + platform-CF harvesting) built, fully harvested (298/298
+Douban anchors, 6,473 candidates), and wired to a monthly scheduled refresh.
+The system has run end-to-end on four real asks. Remaining work is deferred
+scope only (see §8/§9), not unfinished build.
 
 ---
 
@@ -140,71 +142,62 @@ Chinese-language films and violates the project's Chinese-first rule.
 
 ---
 
-## 5. v2 — built, bootstrapped, what's left
+## 5. v2 — complete
 
 Spec: `docs/superpowers/specs/2026-08-23-media-recommend-v2-pool-design.md`.
 Plan: `docs/superpowers/plans/2026-08-23-media-recommend-v2-pool.md`.
 Decision log: `docs/superpowers/decisions/2026-08-23-media-recommend-v2-decision-log.md`.
 
-**Why v2 exists.** v1 re-derived a static corpus on every ask: scout runs cost
-13-16 min / 50-75 tool calls, ~80% of it sequential per-candidate review
-fetching, much of it for candidates the critic then rejected. And the automatic
-re-sweep was economically indefensible interactively — a 70th-percentile gate
-passes ~30% by construction, so 8 dossiers yield ~2.4 expected survivors against
-a floor of 2; shortfalls were routine, each costing another 15-20 min.
+**Why v2 exists.** v1 re-derived a static corpus on every ask (13-16 min per
+scout run, ~80% of it sequential review fetching for candidates the critic then
+rejected), and its automatic re-sweep was economically indefensible: a
+70th-percentile gate passes ~30% by construction, so 8 dossiers yield ~2.4
+expected survivors against a floor of 2.
 
-**What now exists:**
+**What exists:**
 ```
 recommend/pool.py            candidate_pool table + CLI (init/upsert/query/
                              attach-evidence/suppress-sync/stats)
 recommend/harvest_tmdb.py    TMDB CF harvest (anchors/fetch/transform)
 recommend/harvest_douban.py  Douban CF harvest via the mobile rexxar JSON API
-recommend/raw/tmdb|douban/   dated raw snapshots (raw-first) + douban checkpoint
+recommend/render.py          pitch page (SKILL.md step 5b) — carries id_warnings
+recommend/run_digest.sh      one-command monthly data refresh
+recommend/raw/tmdb|douban/   dated raw snapshots + douban checkpoint (298/298)
 ```
-Pool as bootstrapped: **4,297 candidates** (film 3,112 / tv 1,185); by channel
-tmdb_rec 3,265, douban_rec 984, tmdb_discover_recent 50; 401 suppressed
-(already watched or previously rejected — `suppress-sync` working). A pool
-query runs in ~0.04s, replacing 13-16 minutes of network sweeping.
+Pool: **6,473 candidates** (film 4,788 / tv 1,685); by channel tmdb_rec 3,265,
+douban_rec 3,160, tmdb_discover_recent 50; 1,019 suppressed (watched or
+previously rejected). 99.7% of douban_rec rows carry genre tags. A pool query
+runs in ~0.04s, replacing 13-16 minutes of network sweeping.
 
-**The Douban CF surface is the important one.** Only 7 of Anping's 162
-top-rated series carry a TMDB id, while all 162 carry a Douban id — so Douban
-is the TV lane's ONLY collaborative-filtering signal, and v1 had none of it.
-The desktop `/subject/<id>/` page is behind a JS proof-of-work challenge and is
-NOT usable. The working path (verified live, and already used by
-`mediahub.py cmd_enrich_douban`) is Douban's **mobile rexxar JSON API**:
+**Douban CF is the important surface.** Only 7 of Anping's 162 top-rated series
+carry a TMDB id while all 162 carry a Douban id, so Douban is the TV lane's ONLY
+collaborative-filtering signal. The desktop `/subject/<id>/` page is behind a JS
+proof-of-work challenge and is NOT usable. The working path (also used by
+`mediahub.py cmd_enrich_douban`) is the **mobile rexxar JSON API**:
 ```
 GET https://m.douban.com/rexxar/api/v2/movie/{douban_id}/recommendations?for_mobile=1
     User-Agent: mediahub.py's MOBILE_UA
     Accept: application/json, text/plain, */*
     Referer: https://m.douban.com/movie/subject/{douban_id}/
 ```
-Returns a JSON **list** of 20 items with keys `alg_json, card_subtitle, id,
-interest, pic, rating, sharing_url, title, type, uri, url`. `type` gives
-movie/tv, `rating.value` the Douban score, and `card_subtitle`'s leading
-4-digit token the year (100% hit rate on a 40-item sample). Reuse
-`mediahub.py`'s `polite_get`, its 403/302 stop and its 8-consecutive-failure
-circuit breaker — do not write new fetch machinery.
+Returns a JSON **list** of 20 items (`alg_json, card_subtitle, id, interest,
+pic, rating, sharing_url, title, type, uri, url`). `type` gives movie/tv,
+`rating.value` the Douban score, `card_subtitle`'s leading 4-digit token the
+year. Reuse `mediahub.py`'s `polite_get`, 403/302 stop, and 8-failure circuit
+breaker — do not write new fetch machinery. The full 298-anchor harvest
+completed with zero blocks and no breaker trips.
 
-**Douban harvest is deliberately partial: checkpoint sits at 69/298 anchors**
-(`recommend/raw/douban/checkpoint.json`, resumable, remaining 229 are all
-film). This is by design — politeness budget, not a shortfall. Resume with
-`harvest_douban.py fetch --anchors ... --checkpoint ... --budget N`. Use a
-generous per-invocation shell timeout: the harvest is slow *on purpose*
-(randomized 5-10s delays), and a short timeout kills the process mid-run (the
-checkpoint absorbs it safely, but it wastes the session).
+**Standing policies set by Anping, not tuning knobs:**
+- **All candidates are external.** The library is never a candidate source —
+  recommending things he already owns is inventory management, not discovery.
+  Library presence is a dedup/context note only.
+- **Interactive asks do not auto-re-sweep.** A thin slate is reported honestly
+  with an offer to go deeper. Auto-resweep is digest-only.
 
-**Run modes now differ** (see SCOUT.md's "Run modes" section and SKILL.md):
-interactive asks are pool-first with a ~10-network-call budget and **no
-automatic re-sweep** — a thin slate is reported honestly with an offer to go
-deeper; the monthly digest harvests first and keeps the deep behavior including
-auto-resweep.
-
-**What remains — Task 6, user-gated, do not do it unilaterally:**
-1. Anping's explicit approval before adding harvest/refresh steps to the
-   monthly scheduled pipeline (a standing-automation change).
-2. One timed real interactive ask of his choosing, to measure the pool-first
-   path against the ≤5 min target.
-3. Optionally finish the Douban tranche (229 film anchors remaining).
+**Automation:** `monthly-recommend-digest` scheduled task (3rd of each month,
+04:17 local), sequenced after the existing `monthly-douban-backup` so it
+harvests from fresh anchors. It runs `run_digest.sh` then the `/recommend`
+skill in digest mode, and reports `id_warnings`.
 
 ## 6. Environment gotchas that will waste your time
 

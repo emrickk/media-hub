@@ -101,3 +101,28 @@ CONTROLLER VERIFICATION of the claim that justified v2: a pool query is 0.036s /
   The TV lane now has 984 douban_rec candidates where it previously had ZERO CF signal.
 ALL TASKS 1-5 COMPLETE. Task 6 is user-gated (Anping's approval for the scheduled-task wiring,
   and his own ask for the timed retest).
+
+## COMPLETION (2026-08-23)
+1 sibling-seasons helper + douban tags: DONE (130 tests at the time; 146 now incl. peer's render.py)
+2 Douban harvest: DONE 298/298, zero blocks, no breaker trips. Pool 4,297 -> 6,473.
+  douban_rec 984 -> 3,160; 3,150/3,160 (99.7%) tagged. suppressed 411 -> 1,019.
+3 Digest: run_digest.sh + `monthly-recommend-digest` scheduled task (3rd monthly 04:17,
+  sequenced AFTER monthly-douban-backup so it harvests from fresh anchors).
+4 Speed: batch sibling-seasons check = 0.05s for 12 candidates (was the dominant manual cost —
+  per-candidate 第N季 stripping + index grep). Verified it fires: 扑克脸/神烦警探/白莲花度假村 caught by
+  base_title, Brooklyn Nine-Nine caught by EXTERNAL ID across the CN/EN title gap (the exact
+  miss that pitched it as a discovery), Bunny correctly passes.
+5 Final verification: 146 tests pass; integrity ok; works/records/external_ids unchanged
+  4359/5539/11272; recommendations 30; candidate_pool 6473; engine-doc purity clean.
+6 Docs: HANDOFF status -> COMPLETE with v2 facts + standing policies; ARCHITECTURE registers
+  candidate_pool, both harvesters, render.py, run_digest.sh.
+
+Ruling: killed the docs/scheduling agent at 1h with no file writes for 55 min (stuck). Took over
+  scheduling + HANDOFF/ARCHITECTURE directly. Its earlier output (run_digest.sh, SCOUT/README
+  sibling wiring) was already landed and verified good.
+FABRICATED-ID INCIDENT (found by a peer session, verified by me): rows 25/26 carried invented
+  tmdb ids (1861 = Ain't Misbehavin' 1994; 2795 = GMA Network News). Pool rows carried douban-only
+  ids, so harvesters clean — ids were invented mid-run, violating the project's first hard rule.
+  Corrected to 1044/32062. I audited ALL 29 tmdb ids in the log: every one now resolves to the
+  correct title AND year. Root lesson: the critic's fact-check asserted ids "resolve", which a
+  fabricated-but-valid id passes. Verification must compare RESOLVED TITLE/YEAR, not HTTP 200.

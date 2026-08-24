@@ -35,6 +35,19 @@ the `media-hub` repo root.
   §4 makes the batch form mandatory before dossiers); `recommend/reclog.py`
   (the only write surface for the `recommendations` log; init already
   applied).
+- **Pitch page:** `recommend/render.py` — turns logged `recommendations`
+  rows into one self-contained HTML page (cover, synopsis, the scout's
+  case as the reason, sealed prediction, verdict buttons). SKILL.md step
+  5b. `--ids A,B,C` renders a named slate, no flag renders the newest,
+  `--include-killed` adds what the critic cut, `--open` opens it. It
+  takes a **read-only** connection, so unlike every other helper here it
+  is safe to run while another process holds media.db. Posters and
+  synopses come from TMDB (Douban subject page as fallback) and cache
+  under `recommend/covers/`; `--no-network` renders from cache alone.
+  **Its `id_warnings` output is the standing check against fabricated
+  external ids** — a non-empty list means a logged id does not resolve to
+  the work it is filed under, which has happened twice for real. Verify
+  against the source and correct; never wave it through.
 - **Pool helpers (v2):** `recommend/pool.py` — `init` (create
   `candidate_pool`, idempotent), `upsert` (batch insert-or-merge
   candidates from a harvester's batch JSON), `query` (local, no-network

@@ -458,3 +458,21 @@ not scattered ifs.
   suffices for `/tracks/{ids}` ISRC/UPC lookups; user consent adds
   liked/playlists/top/follows but NEVER full listening history (API max =
   last 50 plays — the privacy export is the only history source).
+
+### Recommend system — v2 additions (2026-08-23)
+
+- `candidate_pool` — external candidates harvested from platform
+  collaborative-filtering engines (TMDB `/recommendations`, Douban's mobile
+  rexxar CF API) expanded from Anping's ≥4.5★ anchors. 6,473 rows. Written
+  only by `recommend/pool.py` (upsert/suppress, never destructive). The
+  library is NOT a candidate source — external only, by standing policy.
+- `recommend/harvest_tmdb.py`, `recommend/harvest_douban.py` — the harvesters.
+  Raw-first: every response lands under `recommend/raw/<source>/<date>/`
+  before transformation. Douban honours a resumable checkpoint and a
+  politeness budget (298/298 anchors complete).
+- `recommend/render.py` — renders logged `recommendations` rows into a
+  self-contained pitch page; its `id_warnings` output is the standing check
+  for external ids that resolve to the wrong title.
+- `recommend/run_digest.sh` — one-command monthly data refresh (harvest →
+  upsert → suppress-sync → stats). Driven by the `monthly-recommend-digest`
+  scheduled task, sequenced after `monthly-douban-backup`.
