@@ -1,0 +1,2 @@
+[2026-08-23 19:52:32] === recommend digest data-refresh starting (db=/nonexistent/path.db budget=40 pages=2 recency_months=18) ===
+[2026-08-23 19:52:32] ABORT: --db /nonexistent/path.db does not exist. Nothing was touched.

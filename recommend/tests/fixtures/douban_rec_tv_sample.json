@@ -1,0 +1,435 @@
+{
+ "_meta": {
+  "channel": "douban_rec",
+  "anchor_work_id": 455,
+  "anchor_kind": "tv",
+  "anchor_title": "守望者",
+  "douban_id": "26635374",
+  "status": "fetched",
+  "http_status": 200,
+  "fetched": "2026-08-23",
+  "fetched_at": "2026-08-23T18:00:07-07:00"
+ },
+ "results": [
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2018 / 美国 / 剧情 动作 犯罪 / 菲尔·亚伯拉罕 史蒂芬·瑟吉克 马克·约布斯特 亚历克斯·加西亚·洛佩斯 / 查理·考克斯 黛博拉·安·霍尔",
+   "id": "26841619",
+   "interest": null,
+   "pic": {
+    "large": "https://img3.doubanio.com/view/photo/m_ratio_poster/public/p2534675103.jpg",
+    "normal": "https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2534675103.jpg"
+   },
+   "rating": {
+    "count": 20843,
+    "max": 10,
+    "star_count": 4.5,
+    "value": 9.2
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/26841619",
+   "title": "夜魔侠 第三季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/26841619",
+   "url": "https://movie.douban.com/subject/26841619/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2017 / 美国 / 剧情 动作 犯罪 / 安迪·戈达德 汤姆·森兰 安东尼奥·坎波斯 凯文·霍克斯 马克·约布斯特 吉姆·奥汉龙 卡莉·斯考格兰德 史蒂芬·瑟吉克 迪尔巴拉·沃尔什 杰里米·韦布 杰特·威尔金森 / 乔·博恩瑟 艾波·罗丝·雷瓦",
+   "id": "26710394",
+   "interest": null,
+   "pic": {
+    "large": "https://img3.doubanio.com/view/photo/m_ratio_poster/public/p2498939097.jpg",
+    "normal": "https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2498939097.jpg"
+   },
+   "rating": {
+    "count": 32028,
+    "max": 10,
+    "star_count": 4.5,
+    "value": 8.6
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/26710394",
+   "title": "惩罚者 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/26710394",
+   "url": "https://movie.douban.com/subject/26710394/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2020 / 美国 / 剧情 喜剧 动作 科幻 犯罪 / 菲利浦·斯格里西亚 巴坦·席尔瓦 / 卡尔·厄本 杰克·奎德",
+   "id": "34626347",
+   "interest": null,
+   "pic": {
+    "large": "https://img1.doubanio.com/view/photo/m_ratio_poster/public/p2611337609.jpg",
+    "normal": "https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2611337609.jpg"
+   },
+   "rating": {
+    "count": 133000,
+    "max": 10,
+    "star_count": 4.5,
+    "value": 8.6
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/34626347",
+   "title": "黑袍纠察队 第二季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/34626347",
+   "url": "https://movie.douban.com/subject/34626347/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2019 / 美国 / 剧情 动作 科幻 犯罪 / 格伦·温特 德莫特·唐斯 / 提摩西·道尔顿 布兰登·费舍",
+   "id": "30222729",
+   "interest": null,
+   "pic": {
+    "large": "https://img9.doubanio.com/view/photo/m_ratio_poster/public/p2547403425.jpg",
+    "normal": "https://img9.doubanio.com/view/photo/s_ratio_poster/public/p2547403425.jpg"
+   },
+   "rating": {
+    "count": 12124,
+    "max": 10,
+    "star_count": 4.0,
+    "value": 8.0
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/30222729",
+   "title": "末日巡逻队 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/30222729",
+   "url": "https://movie.douban.com/subject/30222729/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2022 / 美国 / 喜剧 动作 科幻 犯罪 奇幻 冒险 / 詹姆斯·古恩 罗斯玛丽·罗德里格兹 布拉德·安德森 / 约翰·塞纳 丹妮尔·布鲁克斯",
+   "id": "35209701",
+   "interest": null,
+   "pic": {
+    "large": "https://img1.doubanio.com/view/photo/m_ratio_poster/public/p2759888858.jpg",
+    "normal": "https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2759888858.jpg"
+   },
+   "rating": {
+    "count": 55269,
+    "max": 10,
+    "star_count": 4.5,
+    "value": 8.7
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/35209701",
+   "title": "和平使者 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/35209701",
+   "url": "https://movie.douban.com/subject/35209701/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2020 / 美国 / 动作 科幻 冒险 / 乔恩·费儒 布莱丝·达拉斯·霍华德 戴夫·菲洛尼 瑞克·法穆易瓦 卡尔·韦瑟斯 佩顿·里德 罗伯特·罗德里格兹 / 佩德罗·帕斯卡 卡尔·韦瑟斯",
+   "id": "34892527",
+   "interest": null,
+   "pic": {
+    "large": "https://img1.doubanio.com/view/photo/m_ratio_poster/public/p2620309098.jpg",
+    "normal": "https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2620309098.jpg"
+   },
+   "rating": {
+    "count": 94692,
+    "max": 10,
+    "star_count": 4.5,
+    "value": 9.4
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/34892527",
+   "title": "曼达洛人 第二季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/34892527",
+   "url": "https://movie.douban.com/subject/34892527/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2019 / 美国 / 剧情 动作 科幻 / 安德鲁·斯坦顿 卡洛斯·洛佩斯·埃斯特拉达 约翰·卡梅伦 关家永 阿卡莎·史蒂文森 达纳·冈萨雷斯 / 丹·史蒂文斯 瑞秋·凯勒",
+   "id": "30238131",
+   "interest": null,
+   "pic": {
+    "large": "https://img9.doubanio.com/view/photo/m_ratio_poster/public/p2558262776.jpg",
+    "normal": "https://img9.doubanio.com/view/photo/s_ratio_poster/public/p2558262776.jpg"
+   },
+   "rating": {
+    "count": 6584,
+    "max": 10,
+    "star_count": 4.5,
+    "value": 8.7
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/30238131",
+   "title": "大群 第三季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/30238131",
+   "url": "https://movie.douban.com/subject/30238131/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2017 / 美国 / 剧情 悬疑 奇幻 冒险 / 埃文·戈德堡 塞斯·罗根 迈克尔·斯洛维斯 韦恩·叶 斯戴芙·格林 诺维托·巴尔瓦 / 多米尼克·库珀 约瑟夫·吉尔根",
+   "id": "26837030",
+   "interest": null,
+   "pic": {
+    "large": "https://img1.doubanio.com/view/photo/m_ratio_poster/public/p2458480850.jpg",
+    "normal": "https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2458480850.jpg"
+   },
+   "rating": {
+    "count": 10798,
+    "max": 10,
+    "star_count": 4.0,
+    "value": 8.4
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/26837030",
+   "title": "传教士 第二季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/26837030",
+   "url": "https://movie.douban.com/subject/26837030/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2019 / 美国 / 剧情 动作 犯罪 / 丹尼·加农 罗伯·拜利 / 杰克·班农 本·奥德里基",
+   "id": "30224319",
+   "interest": null,
+   "pic": {
+    "large": "https://img1.doubanio.com/view/photo/m_ratio_poster/public/p2559440149.jpg",
+    "normal": "https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2559440149.jpg"
+   },
+   "rating": {
+    "count": 5142,
+    "max": 10,
+    "star_count": 4.0,
+    "value": 8.0
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/30224319",
+   "title": "潘尼沃斯 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/30224319",
+   "url": "https://movie.douban.com/subject/30224319/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2021 / 美国 / 动作 科幻 冒险 / 罗伯特·罗德里格兹 斯戴芙·格林 凯文·坦查隆 布莱丝·达拉斯·霍华德 戴夫·菲洛尼 / 特穆拉·莫里森 温明娜",
+   "id": "35291777",
+   "interest": null,
+   "pic": {
+    "large": "https://img1.doubanio.com/view/photo/m_ratio_poster/public/p2713401318.jpg",
+    "normal": "https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2713401318.jpg"
+   },
+   "rating": {
+    "count": 35200,
+    "max": 10,
+    "star_count": 4.0,
+    "value": 8.4
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/35291777",
+   "title": "波巴·费特之书",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/35291777",
+   "url": "https://movie.douban.com/subject/35291777/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2018 / 美国 / 动作 科幻 奇幻 / 布拉德·安德森 / 布伦顿·思韦茨 蒂根·克罗夫特",
+   "id": "2137327",
+   "interest": null,
+   "pic": {
+    "large": "https://img1.doubanio.com/view/photo/m_ratio_poster/public/p2545822390.jpg",
+    "normal": "https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2545822390.jpg"
+   },
+   "rating": {
+    "count": 13718,
+    "max": 10,
+    "star_count": 4.0,
+    "value": 7.8
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/2137327",
+   "title": "泰坦 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/2137327",
+   "url": "https://movie.douban.com/subject/2137327/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2021 / 美国 / 动作 科幻 冒险 / 夏洛特·布伦德斯特伦 马克·约布斯特 斯蒂文·S·迪奈特 Christopher J. Byrne / 梅格·钱伯斯·斯蒂德尔 安娜·阿卡娜",
+   "id": "27026012",
+   "interest": null,
+   "pic": {
+    "large": "https://img2.doubanio.com/view/photo/m_ratio_poster/public/p2639478051.jpg",
+    "normal": "https://img2.doubanio.com/view/photo/s_ratio_poster/public/p2639478051.jpg"
+   },
+   "rating": {
+    "count": 2280,
+    "max": 10,
+    "star_count": 3.5,
+    "value": 6.5
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/27026012",
+   "title": "朱庇特传奇",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/27026012",
+   "url": "https://movie.douban.com/subject/27026012/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2022 / 美国 / 动作 科幻 冒险 / 黛博拉·周 / 伊万·麦克格雷格 海登·克里斯滕森",
+   "id": "27668664",
+   "interest": null,
+   "pic": {
+    "large": "https://img1.doubanio.com/view/photo/m_ratio_poster/public/p2872516470.jpg",
+    "normal": "https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2872516470.jpg"
+   },
+   "rating": {
+    "count": 18412,
+    "max": 10,
+    "star_count": 3.5,
+    "value": 6.7
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/27668664",
+   "title": "欧比旺",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/27668664",
+   "url": "https://movie.douban.com/subject/27668664/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2018 / 美国 / 剧情 科幻 惊悚 / 詹妮弗·盖辛格 / J·K·西蒙斯 哈里·劳埃德",
+   "id": "30188053",
+   "interest": null,
+   "pic": {
+    "large": "https://img9.doubanio.com/view/photo/m_ratio_poster/public/p2537095266.jpg",
+    "normal": "https://img9.doubanio.com/view/photo/s_ratio_poster/public/p2537095266.jpg"
+   },
+   "rating": {
+    "count": 11570,
+    "max": 10,
+    "star_count": 4.5,
+    "value": 9.0
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/30188053",
+   "title": "相对宇宙 第二季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/30188053",
+   "url": "https://movie.douban.com/subject/30188053/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2022 / 美国 / 剧情 动作 科幻 惊悚 冒险 / 托比·海恩斯 苏珊娜·怀特 本·卡隆 / 迭戈·卢纳 斯特兰·斯卡斯加德",
+   "id": "30376895",
+   "interest": null,
+   "pic": {
+    "large": "https://img9.doubanio.com/view/photo/m_ratio_poster/public/p2877106534.jpg",
+    "normal": "https://img9.doubanio.com/view/photo/s_ratio_poster/public/p2877106534.jpg"
+   },
+   "rating": {
+    "count": 34152,
+    "max": 10,
+    "star_count": 4.5,
+    "value": 9.0
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/30376895",
+   "title": "安多 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/30376895",
+   "url": "https://movie.douban.com/subject/30376895/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2020 / 美国 / 喜剧 / 保罗·金 戴纳·里德 汤姆·马歇尔 迪·里斯 杰弗里·布里茨 David Rogers / 史蒂夫·卡瑞尔 丽莎·库卓",
+   "id": "30434770",
+   "interest": null,
+   "pic": {
+    "large": "https://img2.doubanio.com/view/photo/m_ratio_poster/public/p2601412681.jpg",
+    "normal": "https://img2.doubanio.com/view/photo/s_ratio_poster/public/p2601412681.jpg"
+   },
+   "rating": {
+    "count": 29757,
+    "max": 10,
+    "star_count": 4.0,
+    "value": 7.8
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/30434770",
+   "title": "太空部队 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/30434770",
+   "url": "https://movie.douban.com/subject/30434770/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2021 / 美国 / 剧情 动作 科幻 动画 奇幻 冒险 / 斯图尔德·李 / 迪·布莱德利·贝克 米歇尔·洪",
+   "id": "35141102",
+   "interest": null,
+   "pic": {
+    "large": "https://img2.doubanio.com/view/photo/m_ratio_poster/public/p2637713071.jpg",
+    "normal": "https://img2.doubanio.com/view/photo/s_ratio_poster/public/p2637713071.jpg"
+   },
+   "rating": {
+    "count": 4414,
+    "max": 10,
+    "star_count": 4.0,
+    "value": 8.4
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/35141102",
+   "title": "星球大战：异等小队 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/35141102",
+   "url": "https://movie.douban.com/subject/35141102/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2015 / 美国 / 剧情 科幻 惊悚 / 大卫·塞梅尔 丹尼尔·珀西瓦尔 肯·奥林 迈克尔·瑞迈尔 布莱恩·斯派克 尼尔森·麦科米克 布拉德·安德森 卡瑞恩·库萨马 迈克尔·斯洛维斯 / 艾莉克莎·黛瓦洛斯 鲁珀特·伊文斯",
+   "id": "5320649",
+   "interest": null,
+   "pic": {
+    "large": "https://img3.doubanio.com/view/photo/m_ratio_poster/public/p2287033853.jpg",
+    "normal": "https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2287033853.jpg"
+   },
+   "rating": {
+    "count": 18435,
+    "max": 10,
+    "star_count": 4.0,
+    "value": 7.6
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/5320649",
+   "title": "高堡奇人 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/5320649",
+   "url": "https://movie.douban.com/subject/5320649/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2021 / 美国 / 剧情 动作 科幻 冒险 / 詹姆斯·班福德 李·托兰·克里格 格里高利·史密斯 / 泰勒·霍奇林 比茜·图诺克",
+   "id": "34881451",
+   "interest": null,
+   "pic": {
+    "large": "https://img3.doubanio.com/view/photo/m_ratio_poster/public/p2631620003.jpg",
+    "normal": "https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2631620003.jpg"
+   },
+   "rating": {
+    "count": 5742,
+    "max": 10,
+    "star_count": 4.0,
+    "value": 7.9
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/34881451",
+   "title": "超人和露易丝 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/34881451",
+   "url": "https://movie.douban.com/subject/34881451/"
+  },
+  {
+   "alg_json": "{\"recall\":\"mf_TUUT_tag\",\"name\":\"mf_tag_tv\",\"stype\":\"tv\"}",
+   "card_subtitle": "2019 / 美国 波兰 / 动作 奇幻 冒险 / 阿利克·萨哈罗夫 夏洛特·布伦德斯特伦 亚历克斯·加西亚·洛佩斯 马克·约布斯特 / 亨利·卡维尔 弗蕾娅·艾伦",
+   "id": "26637615",
+   "interest": null,
+   "pic": {
+    "large": "https://img1.doubanio.com/view/photo/m_ratio_poster/public/p2574764569.jpg",
+    "normal": "https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2574764569.jpg"
+   },
+   "rating": {
+    "count": 60427,
+    "max": 10,
+    "star_count": 4.0,
+    "value": 7.5
+   },
+   "sharing_url": "https://www.douban.com/doubanapp/dispatch/movie/26637615",
+   "title": "猎魔人 第一季",
+   "type": "tv",
+   "uri": "douban://douban.com/tv/26637615",
+   "url": "https://movie.douban.com/subject/26637615/"
+  }
+ ]
+}

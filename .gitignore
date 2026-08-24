@@ -1,0 +1,71 @@
+# media-hub — code and contracts are versioned; data and secrets are not.
+#
+# This repo is the SYSTEM, not the library. media.db is the canonical
+# store (ARCHITECTURE.md) and stays local: it is a 49MB binary holding a
+# personal viewing history, it changes on every run, and it is under a
+# one-writer-at-a-time rule that git would happily violate. Everything
+# derived from it is likewise local — it can always be rebuilt from the
+# DB by the loaders in this repo.
+
+# --- secrets -------------------------------------------------------------
+# sync-config.json carries live Plex / Ryot / TMDB tokens in plaintext.
+sync-config.json
+*.env
+.env
+**/sources.env
+*_token.json
+.mcp.json
+
+# --- the canonical store and its backups ---------------------------------
+media.db
+media.db-wal
+media.db-shm
+media.db.bak
+*.db
+*.sqlite
+*.sqlite3
+backups/
+
+# --- raw-first snapshots (immutable local archives, regenerable) ---------
+sources/
+recommend/raw/
+**/_archive-*/
+
+# --- derived / generated artifacts ---------------------------------------
+# All rebuildable: library.html by build_library_db.py, out/ by render.py,
+# covers by fetch_covers_db.py and render.py.
+library.html
+review.html
+covers/
+recommend/covers/
+recommend/out/
+exports/
+dumps/
+
+# --- personal data dumps --------------------------------------------------
+# analysis/ keeps its markdown and its decision records; the bulk dumps of
+# review text and mined ratings are media.db data by another name.
+analysis/reviews_dump_*.txt
+analysis/taste_mining_*.json
+
+# Letterboxd CSVs are the sole surviving copy of a deleted account
+# (CLAUDE.md) — irreplaceable data, not code. Back them up deliberately,
+# not as a side effect of a code push.
+letterboxd-import/
+
+# --- archives -------------------------------------------------------------
+attic/
+
+# --- caches ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.superpowers/
+.DS_Store
+
+# --- iCloud conflict copies ----------------------------------------------
+# This folder lives in iCloud Documents, which silently creates
+# "foo 2.py"-style duplicates (CLAUDE.md).
+* [0-9].*
+*\ [0-9].*
+.icloud

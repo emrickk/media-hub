@@ -1,0 +1,18 @@
+{
+ "schema": "taste-test-verdicts-v1",
+ "exported": "2026-07-28T23:57:15.655Z",
+ "items": [
+  {"id": "T1", "title": "流人", "seen": true, "stars": 4, "appeal": null, "note": "我刚看了第一第二季，我觉得不错。四星半"},
+  {"id": "T2", "title": "切尔诺贝利", "seen": false, "stars": null, "appeal": "want", "note": ""},
+  {"id": "T3", "title": "冰血暴", "seen": false, "stars": null, "appeal": "want", "note": ""},
+  {"id": "T4", "title": "心灵猎人", "seen": false, "stars": null, "appeal": null, "note": ""},
+  {"id": "T5", "title": "熊家餐馆", "seen": null, "stars": null, "appeal": null, "note": ""},
+  {"id": "T6", "title": "孤独的美食家", "seen": null, "stars": null, "appeal": null, "note": ""},
+  {"id": "T7", "title": "办公室（美版）", "seen": false, "stars": null, "appeal": "want", "note": "看到过抖音切片，有兴趣。但是不是你给的理由。就是很奇怪很尴尬的笑点"},
+  {"id": "T8", "title": "南方公园", "seen": false, "stars": null, "appeal": "want", "note": ""},
+  {"id": "T9", "title": "黑道家族", "seen": false, "stars": null, "appeal": "want", "note": "看描述我可能会想看"},
+  {"id": "T10", "title": "兄弟连", "seen": null, "stars": null, "appeal": null, "note": ""},
+  {"id": "T11", "title": "伦敦生活", "seen": null, "stars": null, "appeal": null, "note": ""},
+  {"id": "T12", "title": "葬送的芙莉莲", "seen": null, "stars": null, "appeal": null, "note": ""}
+ ]
+}

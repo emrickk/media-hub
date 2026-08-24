@@ -1,0 +1,19 @@
+{
+  "schema": "taste-test-predictions-v1",
+  "registered": "2026-07-28",
+  "note": "Pre-registered BEFORE Anping's round-2 verdicts. Predictions are hidden from the verdict page (blind test). Stars on his douban 1-5 scale. Scoring rule: |pred - actual| <= 0.5 = hit for seen shows; for unseen shows, appeal(想看) counts as directional support only, never a hit.",
+  "predictions": [
+    {"id": "T1", "title": "流人 Slow Horses", "pred_stars": 4, "confidence": "高", "rationale": "GB crime-mystery zone is his strongest confirmed TV region (真相捕捉 x2 5星, 夏洛克 5星); tight 6-ep seasons, anti-glam, 智商在线, sardonic. All his confirmed virtues at once.", "tests": "core fit"},
+    {"id": "T2", "title": "切尔诺贝利 Chernobyl", "pred_stars": 5, "confidence": "高", "rationale": "Restrained, fact-forward, devastating without preaching; his 5-star words cluster on sincerity + weight (二十二, 小偷家族). 5 eps, zero filler.", "tests": "core fit"},
+    {"id": "T3", "title": "冰血暴 Fargo", "pred_stars": 4, "confidence": "高", "rationale": "He states love for 快节奏黑色幽默 (感谢你抽烟 5星); anthology crime with clean violence and irony. Risk: mid-season sag in some seasons keeps it at 4 not 5.", "tests": "core fit"},
+    {"id": "T4", "title": "心灵猎人 Mindhunter", "pred_stars": 4, "confidence": "中高", "rationale": "Fincher is white-listed (avg 4.20); interview-room tension, precision, zero sentimentality. Risk: talky pacing vs his 拖沓 kill; Fincher discipline should carry it.", "tests": "director whitelist on TV"},
+    {"id": "T5", "title": "熊家餐馆 The Bear", "pred_stars": 4, "confidence": "中", "rationale": "Food + craft sincerity (风味人间 5星) + relentless pacing. Risk: anxiety-drama register and S3 meandering; predicts 4 on S1-2 strength.", "tests": "food-craft transfer from docu to drama"},
+    {"id": "T6", "title": "孤独的美食家", "pred_stars": 4, "confidence": "中高", "rationale": "Purpose-built for his stated context (下饭剧, low load, episodic, real restaurants, sincere not 做作). Risk: could read as too slight to rate high even while watched happily.", "tests": "下饭 contract"},
+    {"id": "T7", "title": "办公室(美版) The Office US", "pred_stars": 3, "confidence": "低", "rationale": "Deep US-sitcom loyalty collides head-on with his 尴尬 kill word: Michael Scott is embodied cringe. Deliberate boundary probe; genuinely uncertain.", "tests": "PROBE: cringe tolerance inside US sitcom safe zone"},
+    {"id": "T8", "title": "南方公园 South Park", "pred_stars": 4, "confidence": "中", "rationale": "Adult animation staple + mocks every side including political correctness, which matches his stated resentment of preachiness. Crude art style irrelevant to him.", "tests": "anti-PC satire alignment"},
+    {"id": "T9", "title": "黑道家族 The Sopranos", "pred_stars": 4, "confidence": "中低", "rationale": "Prestige-crime writing peak (BCS all-5-star suggests transfer), but 90s-era pacing and therapy-session structure risk his 拖沓 kill. 4 with real downside risk.", "tests": "PROBE: canon prestige vs modern pacing standards"},
+    {"id": "T10", "title": "兄弟连 Band of Brothers", "pred_stars": 4, "confidence": "中高", "rationale": "拯救大兵瑞恩 4星; 10 tight episodes, veteran interviews ground it in sincerity, no preach. War genre mildly positive for him (+0.14).", "tests": "core fit"},
+    {"id": "T11", "title": "伦敦生活 Fleabag", "pred_stars": 3, "confidence": "低", "rationale": "Tests whether his 英式喜剧欣赏不来 rule is about humiliation-cringe specifically or British comedy broadly. Fleabag is wit+sincerity, not cringe; if he likes it the rule refines. Predicting 3 = rule holds broadly.", "tests": "PROBE: refine the British-comedy red line"},
+    {"id": "T12", "title": "葬送的芙莉莲 Frieren", "pred_stars": 4, "confidence": "低中", "rationale": "Sincere, quiet, about time and farewell: his 5-star emotional cluster (来不及告别). But slow pastoral fantasy sits near his H9 治愈 skepticism and fantasy's -0.18. If he 5-stars it, sincerity beats pace; if 3, pace kills.", "tests": "PROBE: 慢但真 boundary in animation"}
+  ]
+}

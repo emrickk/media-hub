@@ -1,0 +1,150 @@
+{
+ "schema": "taste-calibration-verdicts-v1",
+ "exported": "2026-07-28T23:32:18.185Z",
+ "verdicts": [
+  {
+   "id": "H1",
+   "verdict": "agree",
+   "note": ""
+  },
+  {
+   "id": "H2",
+   "verdict": "nuance",
+   "note": "如果有的电影某一个部分特别出彩，那我会这么算"
+  },
+  {
+   "id": "H3",
+   "verdict": "nuance",
+   "note": "我评分分season 的，有的剧第一季很好，但是后面烂尾，就会这样"
+  },
+  {
+   "id": "H4",
+   "verdict": "agree",
+   "note": ""
+  },
+  {
+   "id": "H5",
+   "verdict": "agree",
+   "note": ""
+  },
+  {
+   "id": "H6",
+   "verdict": "agree",
+   "note": ""
+  },
+  {
+   "id": "H7",
+   "verdict": "agree",
+   "note": ""
+  },
+  {
+   "id": "H8",
+   "verdict": "agree",
+   "note": ""
+  },
+  {
+   "id": "H9",
+   "verdict": "agree",
+   "note": "同意的，真诚和共鸣很重要"
+  },
+  {
+   "id": "H10",
+   "verdict": "agree",
+   "note": "也不能说是支柱题材吧，我是爱看的，但是不是支柱。"
+  },
+  {
+   "id": "H11",
+   "verdict": "nuance",
+   "note": "那是因为我看的短篇都是得奖短篇吧"
+  },
+  {
+   "id": "H12",
+   "verdict": "nuance",
+   "note": "因为我筛选很严格"
+  },
+  {
+   "id": "H13",
+   "verdict": "nuance",
+   "note": ""
+  },
+  {
+   "id": "H14",
+   "verdict": null,
+   "note": "我喜欢超英，但是只喜欢好看的超英"
+  },
+  {
+   "id": "H15",
+   "verdict": "disagree",
+   "note": "倒是没觉得和国家有关系"
+  },
+  {
+   "id": "H16",
+   "verdict": "agree",
+   "note": ""
+  },
+  {
+   "id": "H17",
+   "verdict": "agree",
+   "note": ""
+  },
+  {
+   "id": "H18",
+   "verdict": "agree",
+   "note": ""
+  },
+  {
+   "id": "H19",
+   "verdict": "agree",
+   "note": "是的，而且可能不是因为演技。比如说杜汶泽我就不管他演技好不好，他港独，所以给我滚"
+  },
+  {
+   "id": "H20",
+   "verdict": "nuance",
+   "note": ""
+  },
+  {
+   "id": "H21",
+   "verdict": "nuance",
+   "note": "我不喜欢豆瓣的田园女权和强装深沉和申华主题的高分。好看就是好看，不好看就是不好看"
+  },
+  {
+   "id": "H22",
+   "verdict": "agree",
+   "note": ""
+  }
+ ],
+ "answers": [
+  {
+   "id": "Q1",
+   "text": ""
+  },
+  {
+   "id": "Q2",
+   "text": "下饭剧，边玩游戏边看，飞机上看"
+  },
+  {
+   "id": "Q3",
+   "text": "部分认吧，毕竟太久了"
+  },
+  {
+   "id": "Q4",
+   "text": "不记得了"
+  },
+  {
+   "id": "Q5",
+   "text": "看不下去呗"
+  },
+  {
+   "id": "Q6",
+   "text": "下载了一个奥斯卡得奖短篇合集"
+  },
+  {
+   "id": "Q7",
+   "text": ""
+  },
+  {
+   "id": "Q8",
+   "text": "不喜欢恐怖片"
+  }
+ ]
+}
