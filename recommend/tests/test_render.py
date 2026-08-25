@@ -240,7 +240,7 @@ def test_render_page_puts_unselected_survivors_below_the_picks(con):
     assert 'class="slate-card slate-card--secondary"' in page
 
 
-def test_primary_card_uses_the_dark_editorial_redesign(con):
+def test_primary_card_uses_the_light_three_part_editorial_design(con):
     enrichment = {
         "summary": "A direct, concrete premise.",
         "special": "The formal device that makes it distinct.",
@@ -260,7 +260,11 @@ def test_primary_card_uses_the_dark_editorial_redesign(con):
                               "2026-08-24 19:30")
 
     assert 'class="slate-card slate-card--primary"' in page
-    assert 'class="reason-grid"' in page
+    assert 'class="about"' in page
+    assert 'class="compact-copy"' in page
+    assert 'class="recommendation-point recommendation-point--special"' in page
+    assert 'class="recommendation-point recommendation-point--fit"' in page
+    assert "What it is" in page
     assert "What makes it special" in page
     assert "Why I picked it for you" in page
     assert "Critic notes" in page
@@ -269,6 +273,8 @@ def test_primary_card_uses_the_dark_editorial_redesign(con):
     assert "SLATE" in page and "SEALED 2026-08-24 19:30" in page
     assert "fonts.googleapis.com" in page
     assert "feedback-dock" in page
+    assert "--paper:#f2ecdf" in page
+    assert "--bg:#14181d" not in page
 
 
 def test_killed_cards_are_audit_rows_without_feedback(con):
