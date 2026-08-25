@@ -52,12 +52,10 @@ Three subcommands, run in this order:
     can learn which anchor (if any) produced a file; without it transform
     would have to guess from the filename, which is not a contract.
 
-    TMDB_API_KEY is read from the `TMDB_API_KEY` env var first, else
-    parsed out of `../douban-export/sources/sources.env` (resolved
-    relative to this file, not the caller's cwd). The key is NEVER
-    printed, logged, or embedded in a saved file or an error message —
-    every URL that appears in `failed` entries or stdout has had its
-    query string stripped.
+    Authentication uses the shared local TMDB credential loader: a preferred
+    `TMDB_READ_ACCESS_TOKEN` Bearer token or legacy `TMDB_API_KEY`, from the
+    environment or gitignored `profile/tmdb.env`. The credential is never
+    printed, logged, or embedded in a saved file or error message.
 
     HTTP failures (timeout, non-200, bad JSON) are appended to the
     `failed` list and the run continues to the next target — a partial
@@ -97,18 +95,15 @@ from __future__ import annotations
 import argparse
 import calendar
 import json
-import os
 import sqlite3
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
 from datetime import date, datetime
 from pathlib import Path
 
+import tmdb as tmdb_client
+
 BUSY_TIMEOUT_MS = 15000
 VOTE_FLOOR = 50
-TMDB_BASE = "https://api.themoviedb.org/3"
 ANCHOR_KINDS = ("film", "tv", "show")
 ANCHOR_STATUSES = ("watched", "watching")
 MEDIA_NAMESPACE = {"movie": "tmdb_movie", "tv": "tmdb_tv"}
@@ -167,31 +162,9 @@ def anchors(con: sqlite3.Connection, min_rating: float = 9.0) -> list[dict]:
 
 # ----------------------------------------------------------------- fetch
 
-def _load_tmdb_key() -> str:
-    """TMDB_API_KEY from the env, else parsed out of sources.env. Never
-    logs the value — callers must not print whatever this returns."""
-    key = os.environ.get("TMDB_API_KEY", "").strip()
-    if key:
-        return key
-    env_path = (Path(__file__).resolve().parent.parent.parent
-                / "douban-export" / "sources" / "sources.env")
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            if line.startswith("TMDB_API_KEY="):
-                return line.split("=", 1)[1].strip()
-    return ""
-
-def _tmdb_get(path: str, key: str, params: dict, timeout: int = 20) -> dict:
-    """GET one TMDB endpoint, api key in the query string per TMDB's v3
-    auth. Raises on any failure (timeout, non-200, bad JSON) — the caller
-    is responsible for catching, recording a SCRUBBED description (no
-    query string — it carries the key) in `failed`, and continuing."""
-    query = urllib.parse.urlencode({"api_key": key, **params})
-    url = f"{TMDB_BASE}{path}?{query}"
-    req = urllib.request.Request(url, headers={
-        "User-Agent": "media-hub-recommend/1.0 (+harvest_tmdb.py)"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+def _tmdb_get(path: str, credential: tmdb_client.Credential,
+              params: dict, timeout: int = 20) -> dict:
+    return tmdb_client.get_json(path, credential, params, timeout=timeout)
 
 def _months_ago(months: int, today: date | None = None) -> str:
     """ISO date `months` calendar months before `today` (default: today),
@@ -205,10 +178,11 @@ def _months_ago(months: int, today: date | None = None) -> str:
     return date(year, month, day).isoformat()
 
 def cmd_fetch(args) -> None:
-    key = _load_tmdb_key()
-    if not key:
-        sys.exit("TMDB_API_KEY not found in env or "
-                 "../douban-export/sources/sources.env")
+    try:
+        credential = tmdb_client.require_credential(
+            repo_root=Path(__file__).resolve().parent.parent)
+    except tmdb_client.CredentialError as error:
+        sys.exit(str(error))
     anchor_rows = json.loads(Path(args.anchors).read_text(encoding="utf-8"))
     raw_dir = Path(args.raw_dir)
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -226,7 +200,7 @@ def cmd_fetch(args) -> None:
     for media, fname in GENRE_FILENAMES.items():
         target = f"genre list media={media}"
         try:
-            data = _tmdb_get(f"/genre/{media}/list", key, {})
+            data = _tmdb_get(f"/genre/{media}/list", credential, {})
         except Exception as e:
             failed.append({"target": target, "error": str(e)})
             continue
@@ -239,7 +213,7 @@ def cmd_fetch(args) -> None:
         for page in range(1, args.pages + 1):
             target = f"rec media={media} tmdb_id={tmdb_id} anchor={work_id} page={page}"
             try:
-                data = _tmdb_get(f"/{media}/{tmdb_id}/recommendations", key,
+                data = _tmdb_get(f"/{media}/{tmdb_id}/recommendations", credential,
                                  {"page": page})
             except Exception as e:
                 failed.append({"target": target, "error": str(e)})
@@ -260,7 +234,7 @@ def cmd_fetch(args) -> None:
             params = {"sort_by": "popularity.desc", "page": page,
                       f"{date_field[media]}.gte": cutoff}
             try:
-                data = _tmdb_get(f"/discover/{media}", key, params)
+                data = _tmdb_get(f"/discover/{media}", credential, params)
             except Exception as e:
                 failed.append({"target": target, "error": str(e)})
                 continue

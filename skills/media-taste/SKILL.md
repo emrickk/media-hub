@@ -34,13 +34,21 @@ means to complete the workflow below, not merely explain it.
    `recommend/CRITIC.md`, and `.claude/skills/recommend/SKILL.md`.
 2. Run `python3 recommend/bootstrap.py --db media.db`. It is idempotent, so do
    not burden the user with environment checks that the command can perform.
-3. Apply the permission rule above. Use native conversation/task access when
+3. Run `python3 recommend/tmdb.py check`. If it reports a missing credential,
+   ask once for the user's free **API Read Access Token** from
+   `https://www.themoviedb.org/settings/api`, then save it as
+   `TMDB_READ_ACCESS_TOKEN=...` in gitignored `profile/tmdb.env` and run the
+   check again. Never echo or commit the token. A legacy `TMDB_API_KEY` works,
+   but the Read Access Token is preferred.
+4. Apply the permission rule above. Use native conversation/task access when
    available. Ask the user for an export only as a fallback, never as the
    default installation experience.
-4. Read the permitted history using `PROFILER.md`. Create the two local profile
+5. Read the permitted history using `PROFILER.md`. Create the two local profile
    files it defines. Ask only load-bearing questions within its budget.
-5. Run the existing scout → blind critic → log → HTML flow. On an empty
-   candidate pool, record the gap and use the scout's targeted top-up path.
+6. Run the existing scout → blind critic → TMDB resolve → log → HTML flow. On
+   an empty candidate pool, record the gap and use the scout's targeted top-up
+   path. Before logging, run `recommend/tmdb.py resolve` on the final batch;
+   correct every unresolved title/year rather than guessing or omitting an id.
 
 ## Recommendation output
 
@@ -48,9 +56,10 @@ Preserve the critic: only selected survivors become the main 8–10 cards. Each
 card must plainly say what the work is, what makes it special, why it may pull
 this user in, useful things inside it, and where to start when relevant. Omit a
 detail rather than inventing it. Use current web information for discovery,
-posters, and third-party ratings when available. If network access is missing,
-continue from reliable model knowledge and local evidence, omit unverifiable
-facts, and render honest fallbacks rather than stopping.
+posters, and third-party ratings when available. Model knowledge may supply
+recommendation judgment, but it may not supply external ids. If network access
+prevents identity verification or cover retrieval, report the concrete blocker;
+do not silently deliver blank cover placeholders as a finished slate.
 
 Render the completed slate to `recommend/out/latest.html` and open it. If the
 environment cannot open local HTML, give the user a clickable absolute path.
@@ -58,10 +67,11 @@ environment cannot open local HTML, give the user a clickable absolute path.
 ## Definition of done
 
 The first run is done only when the user can view a finished recommendation
-page. A cloned repository, initialized database, written profile, candidate
-list, terminal summary, or request that the user run another command is not
-completion. Report any meaningful limitations briefly after delivering the
-page.
+page whose selected cards have verified TMDB identities, complete three-part
+copy, and covers. `0/N` covers, identity warnings, unresolved titles, duplicate
+pending rows, or malformed enrichment are failures, not completion. A cloned
+repository, initialized database, written profile, candidate list, terminal
+summary, or request that the user run another command is not completion.
 
 ## Feedback
 

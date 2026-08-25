@@ -13,12 +13,18 @@ running tests.
    local conversations or transcript files, get permission in one concise
    question and offer exclusions. Do not make the user locate or export
    history unless the environment cannot provide it.
-3. Complete setup, profiling, scouting, blind criticism, logging, and HTML
+3. After bootstrap, run `python3 recommend/tmdb.py check`. If the local
+   credential is missing, pause once and direct the user to
+   `https://www.themoviedb.org/settings/api` for a free API Read Access Token.
+   Save it only in gitignored `profile/tmdb.env`; never commit, print, or put
+   it in generated HTML. Do not accept a coverless first slate as completion.
+4. Complete setup, profiling, scouting, blind criticism, verified TMDB
+   identity resolution, logging, and HTML
    rendering. If the user supplied no viewing request, use the skill's default
    intention. If broader history is unavailable or declined, continue from the
    current conversation and ask only the load-bearing questions allowed by the
    profiler.
-4. Open `recommend/out/latest.html` when the environment supports it;
+5. Open `recommend/out/latest.html` when the environment supports it;
    otherwise return a clickable absolute path. Briefly state any meaningful
    evidence or network limitations, but still produce the strongest honest
    slate possible.

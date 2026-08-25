@@ -298,6 +298,9 @@ direct and adjacent profile evidence, the ask, external evidence, likely
 appetite, and the candidate's own merits; then build only enough finalists
 for a slate of at most 10. Mark the run provisional. The critic applies its
 documented cold-start exception and still rejects weakly supported titles.
+If the profile also contains zero direct media evidence, complete PROFILER.md's
+neutral cold-start questions first; an empty database is not permission to
+infer taste from work context or unrelated prompts.
 
 **This does not weaken the critic's blindness, and a future reader must
 not "fix" this by removing it.** Blindness protects the critic from
@@ -411,8 +414,10 @@ assumption that a clean `sibling-seasons` result is airtight without ids.
   "flags": ["anything the critic should probe"]
 }
 ```
-- `external_ids` are verified at source during dossier building — open the
-  actual TMDB/Douban/IMDb page; never write an id from memory.
+- `external_ids` are verified at source during dossier building. Before
+  logging, `recommend/tmdb.py resolve` is the deterministic final identity
+  gate for every live recommendation; correct an unresolved title/year rather
+  than writing an id from memory or leaving the field empty.
 - Each `evidence` entry's own `tier` is that entry's grade — 1/2/3 per
   §3c's tier definitions. The dossier-level `evidence_tier` is **the
   BEST — numerically LOWEST — tier that any single evidence entry in the

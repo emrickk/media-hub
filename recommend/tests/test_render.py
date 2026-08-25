@@ -304,6 +304,37 @@ def test_page_feedback_packet_uses_differentiated_reactions(con):
     assert "v.reaction || 'note'" in page
 
 
+def test_page_contains_required_tmdb_attribution(con):
+    make_row(con, 1, "A", rank=1, selected=True)
+    card = render.card_of(con.execute("select * from recommendations").fetchone())
+    card.update({"overview": "", "id_warning": ""})
+
+    page = render.render_page([card], [], [], "ask", "2026-08-23 19:00")
+
+    assert "This product uses the TMDB API but is not endorsed or certified by TMDB." in page
+    assert "https://www.themoviedb.org" in page
+
+
+def test_asset_preflight_rejects_missing_identity_and_cover():
+    cards = [{"id": 9, "title": "Coverless", "killed": False,
+              "external_ids": {}, "poster_file": None, "id_warning": ""}]
+
+    problems = render.asset_problems(cards)
+
+    assert any("Coverless" in p and "TMDB identity" in p for p in problems)
+    assert any("Coverless" in p and "cover" in p.lower() for p in problems)
+
+
+def test_asset_preflight_accepts_verified_identity_and_existing_cover(tmp_path):
+    cover = tmp_path / "cover.jpg"
+    cover.write_bytes(b"image")
+    cards = [{"id": 9, "title": "Ready", "killed": False,
+              "external_ids": {"tmdb_movie": "22"}, "poster_file": cover,
+              "id_warning": ""}]
+
+    assert render.asset_problems(cards) == []
+
+
 def test_stars_html_renders_a_half_star():
     assert "★★★★½" in render.stars_html(4.5)
     assert "★★★★½" not in render.stars_html(4.0)

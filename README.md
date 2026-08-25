@@ -30,6 +30,12 @@ rejecting critic, and produces an HTML page with 8–10 rich cards (fewer when
 the evidence does not support them). Nothing personal is committed back to
 GitHub.
 
+On first use, the agent pauses once for your free TMDB **API Read Access
+Token**, available from [TMDB API settings](https://www.themoviedb.org/settings/api).
+It stores the token only in local, gitignored `profile/tmdb.env`. The token lets
+the repository verify exact titles and fetch the covers shown on each card; no
+shared project credential is embedded in this public repository.
+
 The page accepts **Start now**, **Bookmark**, **Wrong title**, **Right title,
 weak pitch**, or **Already seen**, plus written feedback. Copy the result back
 to the agent: wrong titles are suppressed, weak pitches remain eligible for a
@@ -171,5 +177,6 @@ caches, and all credentials are gitignored. This repo is the system; the
 library is local. Everything excluded is either regenerable by the code
 here or personal data that has no business in a remote.
 
-Credentials live in `douban-export/sources/sources.env` and
-`media-hub/sync-config.json` — both ignored, neither ever committed.
+The TMDB credential lives in `profile/tmdb.env`; older private installations
+may still use `douban-export/sources/sources.env`. Other source credentials live
+in `media-hub/sync-config.json`. All are ignored and never committed.

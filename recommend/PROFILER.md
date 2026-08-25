@@ -62,10 +62,15 @@ mostly anchored recommendations, some adjacent bets, and one or two clearly
 labelled explorations. Do not wait for a complete understanding; recommend to
 learn.
 
-Ask no questions when the history is sufficient. During cold start, ask at
-most three concise questions only when each answer would change several
-candidates or resolve a live work-versus-life ambiguity. Never administer a
-taste quiz or ask the user to ratify an engine personality claim.
+Ask no questions when the history contains enough direct media evidence. If,
+after deep reading, it contains **zero direct media reactions, ratings, viewing
+choices, or stated appetites**, ask two or three neutral, concise questions
+before scouting. Ask for recent works they strongly liked or disliked and what
+they would be willing to start now; do not generate answer options from work
+history, employment, or personality inference. Otherwise ask only when an
+answer would change several candidates or resolve a live work-versus-life
+ambiguity. Never administer a taste quiz or ask the user to ratify an engine
+personality claim.
 
 ## Learn after every slate
 

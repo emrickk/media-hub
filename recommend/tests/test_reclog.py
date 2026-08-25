@@ -26,7 +26,22 @@ def make_db(tmp_path):
 SAMPLE = [{
     "kind": "tv", "title": "Test Show", "year": 2024,
     "external_ids": {"tmdb": "123", "imdb": "tt0000001"},
-    "dossier": {"case": "tight writing", "evidence": []},
+    "dossier": {
+        "scout": {
+            "case": "tight writing",
+            "enrichment": {
+                "summary": "A complete, concrete description of the story.",
+                "special": "The specific quality that separates this work.",
+                "personal_hook": "The specific reason this user may want it.",
+                "entry": {"applicable": True, "start_at": "S1E1",
+                          "why": "The story starts here.",
+                          "exit_test": "Try two episodes."},
+                "inside": {"moments": ["A concrete moment."], "quotes": []},
+            },
+        },
+        "critic": {"pitch_rank": 1, "pitch_selected": True,
+                   "selection_reason": "Strong start-now case."},
+    },
     "predicted_stars": 4.5, "predicted_confidence": "medium",
     "critic_killed": 0, "kill_reason": "",
     "session_date": "2026-08-23T12:00:00", "intention": "test ask"
@@ -91,6 +106,77 @@ def test_killed_rows_not_pending(tmp_path):
     f = tmp_path / "k.json"; f.write_text(json.dumps(killed))
     run(db, "log", "--json", str(f))
     assert json.loads(run(db, "pending").stdout) == []
+
+
+def test_live_recommendation_without_tmdb_identity_is_rejected_atomically(tmp_path):
+    """A selected title with no catalog identity cannot reach rendering."""
+    db = make_db(tmp_path)
+    batch = [dict(SAMPLE[0], title="Resolved", external_ids={"tmdb_tv": "1"}),
+             dict(SAMPLE[0], title="Unresolved", external_ids={})]
+    f = tmp_path / "missing-id.json"; f.write_text(json.dumps(batch))
+
+    out = run(db, "log", "--json", str(f))
+
+    assert out.returncode != 0
+    assert "Unresolved" in out.stderr and "TMDB" in out.stderr
+    con = sqlite3.connect(db)
+    assert con.execute("SELECT count(*) FROM recommendations").fetchone()[0] == 0
+
+
+def test_malformed_recommendation_copy_is_rejected_before_insert(tmp_path):
+    """Strings in structured entry/inside fields caused the real render crash."""
+    db = make_db(tmp_path)
+    bad_dossier = json.loads(json.dumps(SAMPLE[0]["dossier"]))
+    bad_dossier["scout"]["enrichment"]["entry"] = "Start at episode one"
+    bad_dossier["scout"]["enrichment"]["inside"] = "The plot gets bigger"
+    batch = [dict(SAMPLE[0], title="Malformed", dossier=bad_dossier)]
+    f = tmp_path / "malformed.json"; f.write_text(json.dumps(batch))
+
+    out = run(db, "log", "--json", str(f))
+
+    assert out.returncode != 0
+    assert "entry" in out.stderr and "inside" in out.stderr
+    con = sqlite3.connect(db)
+    assert con.execute("SELECT count(*) FROM recommendations").fetchone()[0] == 0
+
+
+def test_missing_three_part_pitch_copy_is_rejected(tmp_path):
+    """Cards must explain the work, its special quality, and the personal fit."""
+    db = make_db(tmp_path)
+    dossier = json.loads(json.dumps(SAMPLE[0]["dossier"]))
+    del dossier["scout"]["enrichment"]["special"]
+    batch = [dict(SAMPLE[0], title="Generic Pitch", dossier=dossier)]
+    f = tmp_path / "missing-copy.json"; f.write_text(json.dumps(batch))
+
+    out = run(db, "log", "--json", str(f))
+
+    assert out.returncode != 0
+    assert "special" in out.stderr
+
+
+def test_same_identity_cannot_be_logged_twice_while_feedback_is_pending(tmp_path):
+    """A retry after a render error must reuse the original row, not duplicate it."""
+    db = make_db(tmp_path)
+    f = tmp_path / "first.json"; f.write_text(json.dumps(SAMPLE))
+    assert run(db, "log", "--json", str(f)).returncode == 0
+    again = [dict(SAMPLE[0], title="Different Display Title")]
+    f2 = tmp_path / "again.json"; f2.write_text(json.dumps(again))
+
+    out = run(db, "log", "--json", str(f2))
+
+    assert out.returncode != 0
+    assert "pending" in out.stderr.lower() and "tmdb:123" in out.stderr
+    con = sqlite3.connect(db)
+    assert con.execute("SELECT count(*) FROM recommendations").fetchone()[0] == 1
+
+
+def test_identity_may_be_recommended_again_after_feedback(tmp_path):
+    db = make_db(tmp_path)
+    f = tmp_path / "first.json"; f.write_text(json.dumps(SAMPLE))
+    rid = json.loads(run(db, "log", "--json", str(f)).stdout)[0]
+    assert run(db, "verdict", "--id", str(rid), "--verdict", "meh").returncode == 0
+    f2 = tmp_path / "again.json"; f2.write_text(json.dumps(SAMPLE))
+    assert run(db, "log", "--json", str(f2)).returncode == 0
 
 # --- Fix round 2 (2026-08-23) ---
 

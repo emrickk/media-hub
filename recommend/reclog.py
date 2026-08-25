@@ -7,10 +7,14 @@ this tool has no destructive commands by design.
 `log --json` batch-row contract: each row is a JSON object. Required (all
 three, non-empty — validated up front against the WHOLE batch before any
 insert; a bad batch inserts nothing): `intention`, `kind`, `title`.
-Optional, each defaulted if absent: `year`, `external_ids` ({}), `work_id`
-(null), `dossier` ({}), `predicted_stars`, `predicted_confidence`,
+Optional, each defaulted if absent: `year`, `work_id` (null),
+`predicted_stars`, `predicted_confidence`,
 `critic_killed` (0), `kill_reason` (''), `session_date` (defaults to the
 log call's own timestamp).
+
+Every live recommendation must carry a verified TMDB identity and a complete
+three-part card dossier. Killed audit rows are exempt because they are never
+shown as recommendations.
 
 STAR SCALES: `records.rating` in media.db is 0-10; `predicted_stars` here
 is in STARS, 0.5-5.0 (conversion is rating/2). The two must never mix in
@@ -85,6 +89,7 @@ MISS_PARTS = {"", "retrieval", "profile-gap", "judgment", "axis", "delivery"}
 LOG_REQUIRED_FIELDS = ("intention", "kind", "title")
 STARS_MIN, STARS_MAX = 0.5, 5.0
 BUSY_TIMEOUT_MS = 15000
+TMDB_NAMESPACES = ("tmdb_movie", "tmdb_tv", "tmdb")
 
 def now() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
@@ -145,6 +150,78 @@ def _validate_log_rows(rows) -> list[str]:
             except (TypeError, ValueError):
                 problems.append(f"{label}: critic_killed must be 0, 1, or "
                                 f"absent, got {killed!r}")
+        try:
+            is_killed = bool(int(killed or 0))
+        except (TypeError, ValueError):
+            is_killed = False
+        if is_killed:
+            continue
+
+        external_ids = r.get("external_ids")
+        if not isinstance(external_ids, dict) or not any(
+                str(external_ids.get(namespace) or "").strip()
+                for namespace in TMDB_NAMESPACES):
+            problems.append(
+                f"{label}: live recommendations require a verified TMDB "
+                "identity (tmdb_movie, tmdb_tv, or legacy tmdb)")
+
+        dossier = r.get("dossier")
+        if not isinstance(dossier, dict):
+            problems.append(f"{label}: dossier must be a JSON object")
+            continue
+        scout = dossier.get("scout")
+        enrichment = scout.get("enrichment") if isinstance(scout, dict) else None
+        if not isinstance(enrichment, dict):
+            problems.append(f"{label}: dossier.scout.enrichment must be a JSON object")
+            continue
+        for field in ("summary", "special", "personal_hook"):
+            if not isinstance(enrichment.get(field), str) or not enrichment[field].strip():
+                problems.append(f"{label}: enrichment.{field} must be a non-empty string")
+        entry = enrichment.get("entry")
+        if not isinstance(entry, dict):
+            problems.append(f"{label}: enrichment.entry must be a JSON object")
+        inside = enrichment.get("inside")
+        if not isinstance(inside, dict):
+            problems.append(f"{label}: enrichment.inside must be a JSON object")
+        else:
+            for field in ("moments", "quotes"):
+                if not isinstance(inside.get(field), list):
+                    problems.append(f"{label}: enrichment.inside.{field} must be a list")
+    return problems
+
+
+def _pending_duplicate_problems(con, rows) -> list[str]:
+    """Reject retry-created duplicates while the original still needs feedback."""
+    problems, batch_seen = [], {}
+    for index, row in enumerate(rows):
+        try:
+            if int(row.get("critic_killed") or 0):
+                continue
+        except (TypeError, ValueError):
+            continue
+        ids = row.get("external_ids") or {}
+        identity = next(((namespace, str(ids[namespace]))
+                         for namespace in TMDB_NAMESPACES if ids.get(namespace)), None)
+        if not identity:
+            continue
+        namespace, value = identity
+        label = f"{namespace}:{value}"
+        if label in batch_seen:
+            problems.append(
+                f'row {index} ("{row.get("title")}"): {label} duplicates row '
+                f"{batch_seen[label]} in this batch")
+            continue
+        batch_seen[label] = index
+        existing = con.execute(
+            "SELECT id, title FROM recommendations "
+            "WHERE critic_killed=0 AND verdict IS NULL "
+            "AND CAST(json_extract(external_ids, ?) AS TEXT)=? LIMIT 1",
+            (f"$.{namespace}", value)).fetchone()
+        if existing:
+            problems.append(
+                f'row {index} ("{row.get("title")}"): {label} already has '
+                f'a pending recommendation row #{existing["id"]} '
+                f'("{existing["title"]}"); reuse it instead of logging twice')
     return problems
 
 def cmd_log(con, args):
@@ -152,6 +229,8 @@ def cmd_log(con, args):
     if not isinstance(rows, list):
         sys.exit("log --json expects a JSON list of candidate rows")
     problems = _validate_log_rows(rows)
+    if not problems:
+        problems.extend(_pending_duplicate_problems(con, rows))
     if problems:
         sys.exit("log --json batch failed validation, nothing inserted:\n"
                   + "\n".join(f"  - {p}" for p in problems))

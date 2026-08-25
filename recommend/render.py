@@ -54,6 +54,8 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 
+import tmdb as tmdb_client
+
 HERE = Path(__file__).resolve().parent
 COVER_DIR = HERE / "covers"
 META_PATH = COVER_DIR / "meta.json"
@@ -168,17 +170,8 @@ def save_meta(meta: dict) -> None:
     META_PATH.write_text(json.dumps(meta, ensure_ascii=False, indent=1), "utf-8")
 
 
-def tmdb_key() -> str:
-    import os
-    key = os.environ.get("TMDB_API_KEY", "").strip()
-    if key:
-        return key
-    env = HERE.parent.parent / "douban-export" / "sources" / "sources.env"
-    if env.exists():
-        for line in env.read_text("utf-8").splitlines():
-            if line.startswith("TMDB_API_KEY="):
-                return line.split("=", 1)[1].strip()
-    return ""
+def tmdb_credential() -> tmdb_client.Credential | None:
+    return tmdb_client.load_credential(repo_root=HERE.parent)
 
 
 def get_json(url: str, headers: dict | None = None, timeout: int = 20) -> dict:
@@ -207,14 +200,15 @@ def _norm(s: str) -> str:
     return re.sub(r"[^0-9a-z一-鿿]+", "", (s or "").lower())
 
 
-def resolve_via_imdb(imdb_id: str, key: str) -> tuple[str, str] | None:
+def resolve_via_imdb(imdb_id: str, credential: tmdb_client.Credential) -> tuple[str, str] | None:
     """An imdb tt id -> the TMDB detail path for the same work. TMDB's
     /find is authoritative here, which is the whole point: it is a lookup
     at the source, not a guess."""
-    q = urllib.parse.urlencode({"api_key": key, "external_source": "imdb_id"})
     try:
-        data = get_json(f"{TMDB_BASE}/find/{imdb_id}?{q}")
-    except (urllib.error.URLError, OSError, json.JSONDecodeError, TimeoutError):
+        data = tmdb_client.get_json(
+            f"/find/{imdb_id}", credential, {"external_source": "imdb_id"})
+    except (urllib.error.URLError, OSError, json.JSONDecodeError, TimeoutError,
+            tmdb_client.CredentialError):
         return None
     if data.get("movie_results"):
         return f"/movie/{data['movie_results'][0]['id']}", "movie"
@@ -223,7 +217,8 @@ def resolve_via_imdb(imdb_id: str, key: str) -> tuple[str, str] | None:
     return None
 
 
-def tmdb_detail(ids: dict, key: str, kind: str = "") -> dict:
+def tmdb_detail(ids: dict, credential: tmdb_client.Credential,
+                kind: str = "") -> dict:
     """Poster path + zh-CN overview (English fallback) for one candidate,
     with the id checked against what TMDB says that id actually is.
 
@@ -245,7 +240,7 @@ def tmdb_detail(ids: dict, key: str, kind: str = "") -> dict:
         path = f"/{media}/{ids['tmdb']}"
     elif ids.get("imdb"):
         # No tmdb id at all — TMDB can resolve an imdb tt id to its own.
-        resolved = resolve_via_imdb(str(ids["imdb"]), key)
+        resolved = resolve_via_imdb(str(ids["imdb"]), credential)
         if not resolved:
             return {}
         path, media = resolved
@@ -254,10 +249,10 @@ def tmdb_detail(ids: dict, key: str, kind: str = "") -> dict:
 
     out: dict = {"media": media, "names": set()}
     for lang in ("zh-CN", "en-US"):
-        q = urllib.parse.urlencode({"api_key": key, "language": lang})
         try:
-            data = get_json(f"{TMDB_BASE}{path}?{q}")
-        except (urllib.error.URLError, OSError, json.JSONDecodeError, TimeoutError):
+            data = tmdb_client.get_json(path, credential, {"language": lang})
+        except (urllib.error.URLError, OSError, json.JSONDecodeError, TimeoutError,
+                tmdb_client.CredentialError):
             continue
         for field in ("title", "name", "original_title", "original_name"):
             if data.get(field):
@@ -323,7 +318,9 @@ def douban_detail(douban_id: str) -> dict:
     return out
 
 
-def ensure_assets(card: dict, meta: dict, key: str, no_network: bool) -> None:
+def ensure_assets(card: dict, meta: dict,
+                  credential: tmdb_client.Credential | None,
+                  no_network: bool) -> None:
     """Fill card['poster_file'] and card['overview'], fetching only what
     the cache is missing. Mutates `meta` so the caller can persist it."""
     ck = cache_key(card["external_ids"], card["title"], card["year"])
@@ -343,9 +340,9 @@ def ensure_assets(card: dict, meta: dict, key: str, no_network: bool) -> None:
     ids = card["external_ids"]
     img_url, img_headers = "", {}
 
-    if key and any(ids.get(k) for k in
-                   ("tmdb_movie", "tmdb_tv", "tmdb", "imdb")):
-        d = tmdb_detail(ids, key, card["kind"])
+    if credential and any(ids.get(k) for k in
+                          ("tmdb_movie", "tmdb_tv", "tmdb", "imdb")):
+        d = tmdb_detail(ids, credential, card["kind"])
         if d and not id_matches(d, card["title"], card["original_title"],
                                 card["year"]):
             bad = (ids.get("tmdb_movie") or ids.get("tmdb_tv")
@@ -390,6 +387,24 @@ def data_uri(path: Path | None) -> str:
         return ""
     mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
     return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
+
+
+def asset_problems(cards: list[dict], *, require_covers: bool = True) -> list[str]:
+    """Return user-visible reasons a slate is not safe to publish."""
+    problems = []
+    for card in cards:
+        if card.get("killed"):
+            continue
+        label = f'#{card.get("id")} {card.get("title")}'
+        ids = card.get("external_ids") or {}
+        if not any(str(ids.get(key) or "").strip()
+                   for key in ("tmdb_movie", "tmdb_tv", "tmdb")):
+            problems.append(f"{label}: missing verified TMDB identity")
+        if card.get("id_warning"):
+            problems.append(f"{label}: {card['id_warning']}")
+        if require_covers and not card.get("poster_file"):
+            problems.append(f"{label}: cover could not be fetched or found in cache")
+    return problems
 
 
 # --------------------------------------------------------------------------
@@ -892,6 +907,7 @@ def page_shell(title: str, inner: str) -> str:
 <style>{CSS}</style></head>
 <body><div class="wrap">
 {inner}
+<p class="tmdb-attribution"><a href="https://www.themoviedb.org" target="_blank" rel="noreferrer">TMDB</a> · This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
 </div>
 <div class="feedback-dock"><div class="dock-inner"><span id="count">0 reactions</span>
  <input id="overall" type="text" aria-label="Overall slate feedback"
@@ -914,6 +930,9 @@ def main() -> None:
     ap.add_argument("--include-killed", action="store_true")
     ap.add_argument("--out", default="")
     ap.add_argument("--no-network", action="store_true")
+    ap.add_argument("--allow-missing-covers", action="store_true",
+                    help="explicit exception for a title known to have no poster; "
+                         "identity mismatches still fail")
     ap.add_argument("--open", dest="do_open", action="store_true")
     args = ap.parse_args()
 
@@ -926,10 +945,20 @@ def main() -> None:
 
     cards = [card_of(r) for r in rows]
     meta = load_meta()
-    key = tmdb_key()
+    credential = tmdb_credential()
     for c in cards:
-        ensure_assets(c, meta, key, args.no_network)
+        ensure_assets(c, meta, credential, args.no_network)
     save_meta(meta)
+
+    problems = asset_problems(cards, require_covers=not args.allow_missing_covers)
+    if problems:
+        setup = ""
+        if not credential and any("cover" in problem.lower() for problem in problems):
+            setup = ("\nTMDB credential is missing. Create a free API Read Access Token at "
+                     f"{tmdb_client.SETTINGS_URL}, then save it in "
+                     "profile/tmdb.env as TMDB_READ_ACCESS_TOKEN=...")
+        sys.exit("recommendation page is incomplete; no HTML was written:\n  - "
+                 + "\n  - ".join(problems) + setup)
 
     def by_rank(cs):
         return sorted(cs, key=lambda c: (c["rank"] is None, c["rank"] or 0, c["id"]))

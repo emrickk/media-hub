@@ -64,8 +64,14 @@ def test_empty_store_to_rich_card_to_rejection_suppression(tmp_path):
     rid = json.loads(logged.stdout)[0]
 
     html = tmp_path / "recommendations.html"
+    refused = run("recommend/render.py", "--db", str(db), "--ids", str(rid),
+                  "--out", str(html), "--no-network")
+    assert refused.returncode != 0
+    assert "incomplete" in refused.stderr and "cover" in refused.stderr
+    assert not html.exists()
+
     rendered = run("recommend/render.py", "--db", str(db), "--ids", str(rid),
-                   "--out", str(html), "--no-network")
+                   "--out", str(html), "--no-network", "--allow-missing-covers")
     assert rendered.returncode == 0, rendered.stderr
     page = html.read_text("utf-8")
     assert "What makes it special" in page

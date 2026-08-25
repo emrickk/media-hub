@@ -82,6 +82,11 @@ All commands assume cwd = the `media-hub` repo root.
    If the distribution reports `overall.n: 0`, this is a true cold start:
    keep that object as a required input, but do not manufacture a percentile
    target or pretend the empty cell is calibrated.
+   Also run `python3 recommend/tmdb.py check` before any TMDB work. A missing
+   credential is a one-time setup pause: direct the user to
+   `https://www.themoviedb.org/settings/api`, save the API Read Access Token in
+   gitignored `profile/tmdb.env`, and re-check. Never continue toward a
+   coverless page.
 2. **Scout**: run SCOUT.md §§1–6 in this session (interpret + clarify
    check → history → sweep → narrow → dossiers → handoff), following
    whichever of SCOUT.md's "Run modes" paths matches this run:
@@ -300,7 +305,11 @@ All commands assume cwd = the `media-hub` repo root.
      wishlist>"` for wishlist-notes. Empty string `""` for survivors
      (`critic_killed = 0`).
 
-   Then: `python3 recommend/reclog.py --db media.db log --json <scratchpad>/batch.json`
+   Before logging, resolve every non-killed row's identity with
+   `python3 recommend/tmdb.py resolve --input <scratchpad>/batch.json --out
+   <scratchpad>/resolved.json`. Resolve failures are defects in title/year,
+   never permission to guess an id. Then:
+   `python3 recommend/reclog.py --db media.db log --json <scratchpad>/resolved.json`
    It prints a JSON list of the inserted row ids **in batch order** —
    `ids[i]` is the id of `batch[i]`. Keep that mapping; step 6 needs it.
    If you lose it (or verdicts arrive in a later session), recover the
@@ -323,8 +332,11 @@ All commands assume cwd = the `media-hub` repo root.
    the source says that id is — that is a fabricated id in media.db (it
    has happened: two of six rows in the 2026-08-23 run carried invented
    tmdb ids), so treat any warning as a defect to verify against the
-   source and correct, not a cosmetic gap. `covers` and `synopses` below
-   full coverage are ordinary — some works simply have no poster.
+   source and correct, not a cosmetic gap. Missing covers fail rendering by
+   default. `--allow-missing-covers` is only for an explicitly accepted,
+   verified title known to have no poster; it is never a shortcut for missing
+   credentials, skipped identity resolution, or network failure. A first-run
+   `0/N` cover result is not done.
 6. **Verdicts**: when the user reacts, record each with
    `python3 recommend/reclog.py --db media.db verdict --id N --verdict V --note "..."`
    where `N` comes from the step-5 id list (or from `pending`) and `V` is

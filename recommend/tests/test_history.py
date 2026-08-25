@@ -95,7 +95,12 @@ def test_rec_log_included(tmp_path):
     db = make_db(tmp_path)
     batch = tmp_path / "b.json"
     batch.write_text(json.dumps([{"kind":"tv","title":"Old Pitch","year":2019,
-        "intention":"x","external_ids":{"tmdb":"5"}}]))
+        "intention":"x","external_ids":{"tmdb":"5"},
+        "dossier":{"scout":{"enrichment":{
+            "summary":"A concrete summary.", "special":"A concrete distinction.",
+            "personal_hook":"A concrete personal hook.",
+            "entry":{}, "inside":{"moments":[], "quotes":[]}}},
+            "critic":{"pitch_selected":True}}}]))
     subprocess.run([sys.executable, RECLOG, "--db", str(db),
                     "log", "--json", str(batch)], check=True)
     s = snap(db)
