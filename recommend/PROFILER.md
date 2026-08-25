@@ -62,6 +62,14 @@ mostly anchored recommendations, some adjacent bets, and one or two clearly
 labelled explorations. Do not wait for a complete understanding; recommend to
 learn.
 
+Evaluate the zero-evidence condition below only after the broader-history
+privacy gate in `skills/media-taste/SKILL.md` has resolved. If permission is
+granted, first scan the permitted conversations broadly and deeply read the
+high-information ones as described above. If permission has not yet been
+asked, return to that gate; do not substitute taste questions. A current
+conversation with no media evidence is not proof that broader chat history has
+none. Do not bundle taste questions into the permission turn.
+
 Ask no questions when the history contains enough direct media evidence. If,
 after deep reading, it contains **zero direct media reactions, ratings, viewing
 choices, or stated appetites**, ask two or three neutral, concise questions

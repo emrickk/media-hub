@@ -23,8 +23,10 @@ can view the finished recommendation page.
 Codex discovers `AGENTS.md`; Claude Code discovers `CLAUDE.md`. Those entry
 points tell the agent to continue through the whole workflow without requiring
 the user to know the repository structure, skill name, or slash command. The
-agent may ask one short privacy question before reading conversations beyond
-the current chat. It then separates what the user explicitly expressed from
+agent asks one short privacy question before reading conversations beyond the
+current chat whenever permission is not already explicit. It reviews permitted
+history before deciding whether any taste questions are necessary, then
+separates what the user explicitly expressed from
 what it only infers, initializes a local database, runs the scout and blind
 rejecting critic, and produces an HTML page with 8–10 rich cards (fewer when
 the evidence does not support them). Nothing personal is committed back to

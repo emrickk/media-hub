@@ -12,7 +12,13 @@ running tests.
 2. Treat the current conversation as available evidence. Before reading other
    local conversations or transcript files, get permission in one concise
    question and offer exclusions. Do not make the user locate or export
-   history unless the environment cannot provide it.
+   history unless the environment cannot provide it. This permission question
+   is the next user interaction whenever permission is not already explicit;
+   ask it by itself. Do not replace or bundle it with taste questions, and do
+   not treat an evidence-poor current conversation as proof that the user's
+   broader chat history contains no media evidence. Taste questions become
+   eligible only after broader history has been permitted and reviewed,
+   declined, or confirmed unavailable.
 3. After bootstrap, run `python3 recommend/tmdb.py check`. If the local
    credential is missing, pause once and direct the user to
    `https://www.themoviedb.org/settings/api` for a free API Read Access Token.

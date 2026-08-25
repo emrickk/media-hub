@@ -20,7 +20,10 @@ means to complete the workflow below, not merely explain it.
   permission. If that permission is not already explicit, ask once: whether
   the agent may read locally available Codex/Claude history for this purpose
   and whether anything should be excluded. Do not split this into several
-  setup questions.
+  setup questions. This is a gate: ask the permission-and-exclusions question
+  by itself before any taste questions. The current conversation alone does
+  not count as a completed review of broader history, and finding no media
+  evidence in it does not satisfy the profiler's zero-evidence condition.
 - If the environment cannot expose broader history, or the user declines,
   continue with the current conversation. Ask up to the profiler's question
   budget only when the missing answer would materially change the slate.
@@ -40,11 +43,13 @@ means to complete the workflow below, not merely explain it.
    `TMDB_READ_ACCESS_TOKEN=...` in gitignored `profile/tmdb.env` and run the
    check again. Never echo or commit the token. A legacy `TMDB_API_KEY` works,
    but the Read Access Token is preferred.
-4. Apply the permission rule above. Use native conversation/task access when
-   available. Ask the user for an export only as a fallback, never as the
-   default installation experience.
-5. Read the permitted history using `PROFILER.md`. Create the two local profile
-   files it defines. Ask only load-bearing questions within its budget.
+4. Apply the permission gate above. Until it resolves, do not ask taste
+   questions or claim that chat history lacks media evidence. Use native
+   conversation/task access when available. Ask the user for an export only as
+   a fallback, never as the default installation experience.
+5. Read the permitted history using `PROFILER.md` before evaluating whether
+   taste questions are needed. Create the two local profile files it defines.
+   Ask only load-bearing questions within its budget.
 6. Run the existing scout → blind critic → TMDB resolve → log → HTML flow. On
    an empty candidate pool, record the gap and use the scout's targeted top-up
    path. Before logging, run `recommend/tmdb.py resolve` on the final batch;
